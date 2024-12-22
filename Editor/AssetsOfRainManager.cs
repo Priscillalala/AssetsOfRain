@@ -22,6 +22,12 @@ namespace AssetsOfRain.Editor
         {
             public string primaryKey;
             public string assemblyQualifiedTypeName;
+
+            public AssetRequestInfo(IResourceLocation assetLocation)
+            {
+                primaryKey = assetLocation.PrimaryKey;
+                assemblyQualifiedTypeName = assetLocation.ResourceType.AssemblyQualifiedName;
+            }
         }
 
         [Serializable]
@@ -33,8 +39,9 @@ namespace AssetsOfRain.Editor
             public List<Material> materialsWithShader;
         }
 
-        const string ASSETS_OF_RAIN_DIRECTORY = "Assets/AssetsOfRainData";
-        const string MANAGER_FILE_PATH = ASSETS_OF_RAIN_DIRECTORY + "/AssetsOfRainManager.asset";
+        const string MANAGER_FILE_PATH = AssetsOfRain.DATA_DIRECTORY + "/AssetsOfRainManager.asset";
+        const string VIRTUAL_ASSETS_DIRECTORY = AssetsOfRain.DATA_DIRECTORY + "/VirtualAssets";
+        const string GROUPS_DIRECTORY = AssetsOfRain.DATA_DIRECTORY + "/Groups";
 
         public List<AssetRequestInfo> assetRequests = new List<AssetRequestInfo>();
         public List<AddressableShaderInfo> addressableShaders = new List<AddressableShaderInfo>();
@@ -64,148 +71,14 @@ namespace AssetsOfRain.Editor
             }
             instance = CreateInstance<AssetsOfRainManager>();
             instance.name = Path.GetFileNameWithoutExtension(MANAGER_FILE_PATH);
-            Directory.CreateDirectory(ASSETS_OF_RAIN_DIRECTORY);
+            Directory.CreateDirectory(AssetsOfRain.DATA_DIRECTORY);
             AssetDatabase.CreateAsset(instance, MANAGER_FILE_PATH);
             return instance;
         }
 
-        /*public static AssetsOfRainManager Instance
-        {
-            get
-            {
-                if (instance == null)
-                {
-                    instance = LoadManagerInstance();
-                }
-                return instance;
-            }
-        }
-
-        private static AssetsOfRainManager LoadManagerInstance()
-        {
-            AssetsOfRainManager manager = AssetDatabase.LoadAssetAtPath<AssetsOfRainManager>(MANAGER_FILE_PATH);
-            if (manager == null)
-            {
-                manager = CreateInstance<AssetsOfRainManager>();
-                manager.name = Path.GetFileNameWithoutExtension(MANAGER_FILE_PATH);
-                Directory.CreateDirectory(ASSETS_OF_RAIN_DIRECTORY);
-                AssetDatabase.CreateAsset(manager, MANAGER_FILE_PATH);
-                //AssetDatabase.SaveAssetIfDirty(manager);
-            }
-            return manager;
-        }*/
-
-        [ContextMenu("LoadAddressableShaders")]
-        public void LoadAddressableShaders()
-        {
-            Debug.Log("LoadAddressableShaders");
-            HashSet<string> foundShaderKeys = new HashSet<string>();
-            List<AddressableShaderInfo> oldAddressableShaders = new List<AddressableShaderInfo>(addressableShaders);
-            addressableShaders.Clear();
-            foreach (IResourceLocator resourceLocator in Addressables.ResourceLocators)
-            {
-                foreach (var key in resourceLocator.Keys)
-                {
-                    if (!resourceLocator.Locate(key, typeof(Shader), out IList<IResourceLocation> locations))
-                    {
-                        continue;
-                    }
-                    var shaderLocation = locations.FirstOrDefault();
-                    string primaryKey = shaderLocation.PrimaryKey;
-                    if (shaderLocation == null || !foundShaderKeys.Add(primaryKey))
-                    {
-                        continue;
-                    }
-                    Shader shader = Addressables.LoadAssetAsync<Shader>(shaderLocation).WaitForCompletion();
-                    if (ignoredShaderDirectories.Any(x => shader.name.StartsWith(x)))
-                    {
-                        continue;
-                    }
-
-                    if (primaryKey != "RoR2/Base/Shaders/HGStandard.shader" && primaryKey != "RoR2/Base/Shaders/HGCloudRemap.shader")
-                    {
-                        continue;
-                    }
-                    Debug.Log($"At: {primaryKey}: {shader.name}");
-
-                    AssetDatabase.TryGetGUIDAndLocalFileIdentifier(shader, out _, out long localId);
-                    RequestAsset(shaderLocation, out string virtualAssetPath, false);
-                    shader = AssetDatabase.LoadAssetAtPath<Shader>(virtualAssetPath);
-                    Debug.Log($"Is supported? {shader.isSupported}");
-                    if (!shader)
-                    {
-                        continue;
-                    }
-                    AddressableShaderInfo addressableShaderInfo = oldAddressableShaders.FirstOrDefault(x => x.primaryKey == primaryKey);
-                    addressableShaderInfo.primaryKey = shaderLocation.PrimaryKey;
-                    addressableShaderInfo.identifier = localId;
-                    addressableShaderInfo.asset = shader;
-                    addressableShaderInfo.materialsWithShader ??= new List<Material>();
-                    addressableShaders.Add(addressableShaderInfo);
-                }
-            }
-            shaderInfoCache.Clear();
-            EditorUtility.SetDirty(this);
-        }
-
-        public bool RequestAsset(IResourceLocation assetLocation, out string virtualAssetPath, bool recordRequest = true)
-        {
-            Debug.Log($"RequestAsset: {assetLocation.PrimaryKey}");
-
-            if (recordRequest)
-            {
-                AssetRequestInfo assetRequest = new AssetRequestInfo
-                {
-                    primaryKey = assetLocation.PrimaryKey,
-                    assemblyQualifiedTypeName = assetLocation.ResourceType.AssemblyQualifiedName,
-                };
-                if (!assetRequests.Contains(assetRequest))
-                {
-                    assetRequests.Add(assetRequest);
-                    EditorUtility.SetDirty(this);
-                }
-            }
-
-            virtualAssetPath = GetVirtualAssetPath(assetLocation.PrimaryKey);
-            Directory.CreateDirectory(Path.GetDirectoryName(virtualAssetPath));
-            if (!File.Exists(virtualAssetPath))
-            {
-                File.Create(virtualAssetPath).Close();
-                AssetDatabase.ImportAsset(virtualAssetPath);
-            }
-            if (AssetImporter.GetAtPath(virtualAssetPath) is not VirtualAddressableAssetImporter importer)
-            {
-                return false;
-            }
-            importer.primaryKey = assetLocation.PrimaryKey;
-            importer.assemblyQualifiedTypeName = assetLocation.ResourceType.AssemblyQualifiedName;
-            EditorUtility.SetDirty(importer);
-            importer.SaveAndReimport();
-
-            /*AddressableAssetSettings aaSettings = AddressableAssetSettingsDefaultObject.Settings;
-
-
-            string groupName = fileName.Substring(0, endIndex);
-            string groupPath = Path.Combine(testDirectory, Path.ChangeExtension(groupName, "asset")); 
-            
-            string bundleName = Path.ChangeExtension(assetBundleRequestOptions.BundleName, "bundle");
-
-            ExternalAddressableAssetGroup externalGroup = AssetDatabase.LoadAssetAtPath<ExternalAddressableAssetGroup>(groupPath);
-            if (!externalGroup)
-            {
-                externalGroup = ScriptableObject.CreateInstance<ExternalAddressableAssetGroup>();
-                //externalGroup.Initialize(this, validName, GUID.Generate().ToString(), readOnly);
-                externalGroup.Name = groupName;
-                externalGroup.externalBundleName = bundleName;
-                AssetDatabase.CreateAsset(externalGroup, groupPath);
-            }*/
-
-            return true;
-        }
-
         public static string GetVirtualAssetPath(string primaryKey)
         {
-            return Path.Combine(ASSETS_OF_RAIN_DIRECTORY, Path.ChangeExtension(primaryKey, "virtualaa"));
+            return Path.Combine(VIRTUAL_ASSETS_DIRECTORY, Path.ChangeExtension(primaryKey, VirtualAddressableAssetImporter.EXTENSION));
         }
 
         public void OnEnable()
@@ -272,6 +145,127 @@ namespace AssetsOfRain.Editor
                 Debug.Log($"Setting material {material.name} to use shader {addressableShaderInfo.asset.name} temporarily");
                 AssetDatabase.SaveAssetIfDirty(material);
                 material.shader = Addressables.LoadAssetAsync<Shader>(addressableShaderInfo.primaryKey).WaitForCompletion();
+            }
+        }
+
+        public bool RequestAsset(AssetRequestInfo assetRequest, out string virtualAssetPath, bool recordRequest = true)
+        {
+            Debug.Log($"RequestAsset: {assetRequest.primaryKey}");
+
+            if (recordRequest && !assetRequests.Contains(assetRequest))
+            {
+                assetRequests.Add(assetRequest);
+                EditorUtility.SetDirty(this);
+            }
+
+            virtualAssetPath = GetVirtualAssetPath(assetRequest.primaryKey);
+            if (!File.Exists(virtualAssetPath))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(virtualAssetPath));
+                File.Create(virtualAssetPath).Close();
+                AssetDatabase.ImportAsset(virtualAssetPath);
+            }
+            if (AssetImporter.GetAtPath(virtualAssetPath) is not VirtualAddressableAssetImporter importer)
+            {
+                return false;
+            }
+            importer.primaryKey = assetRequest.primaryKey;
+            importer.assemblyQualifiedTypeName = assetRequest.assemblyQualifiedTypeName;
+            EditorUtility.SetDirty(importer);
+            importer.SaveAndReimport();
+
+            /*AddressableAssetSettings aaSettings = AddressableAssetSettingsDefaultObject.Settings;
+
+
+            string groupName = fileName.Substring(0, endIndex);
+            string groupPath = Path.Combine(testDirectory, Path.ChangeExtension(groupName, "asset")); 
+            
+            string bundleName = Path.ChangeExtension(assetBundleRequestOptions.BundleName, "bundle");
+
+            ExternalAddressableAssetGroup externalGroup = AssetDatabase.LoadAssetAtPath<ExternalAddressableAssetGroup>(groupPath);
+            if (!externalGroup)
+            {
+                externalGroup = ScriptableObject.CreateInstance<ExternalAddressableAssetGroup>();
+                //externalGroup.Initialize(this, validName, GUID.Generate().ToString(), readOnly);
+                externalGroup.Name = groupName;
+                externalGroup.externalBundleName = bundleName;
+                AssetDatabase.CreateAsset(externalGroup, groupPath);
+            }*/
+
+            return true;
+        }
+
+        public bool RemoveAsset(AssetRequestInfo assetRequest)
+        {
+            if (assetRequests.Remove(assetRequest))
+            {
+                EditorUtility.SetDirty(this);
+            }
+            string virtualAssetPath = GetVirtualAssetPath(assetRequest.primaryKey);
+            return AssetDatabase.DeleteAsset(virtualAssetPath);
+        }
+
+        public void RebuildAddressableShaders()
+        {
+            Debug.Log("LoadAddressableShaders");
+            HashSet<string> foundShaderKeys = new HashSet<string>();
+            List<AddressableShaderInfo> oldAddressableShaders = new List<AddressableShaderInfo>(addressableShaders);
+            addressableShaders.Clear();
+            foreach (IResourceLocator resourceLocator in Addressables.ResourceLocators)
+            {
+                foreach (var key in resourceLocator.Keys)
+                {
+                    if (!resourceLocator.Locate(key, typeof(Shader), out IList<IResourceLocation> locations))
+                    {
+                        continue;
+                    }
+                    var shaderLocation = locations.FirstOrDefault();
+                    string primaryKey = shaderLocation.PrimaryKey;
+                    if (shaderLocation == null || !foundShaderKeys.Add(primaryKey))
+                    {
+                        continue;
+                    }
+                    Shader shader = Addressables.LoadAssetAsync<Shader>(shaderLocation).WaitForCompletion();
+                    if (ignoredShaderDirectories.Any(x => shader.name.StartsWith(x)))
+                    {
+                        continue;
+                    }
+
+                    if (primaryKey != "RoR2/Base/Shaders/HGStandard.shader" && primaryKey != "RoR2/Base/Shaders/HGCloudRemap.shader")
+                    {
+                        continue;
+                    }
+                    Debug.Log($"At: {primaryKey}: {shader.name}");
+
+                    AssetDatabase.TryGetGUIDAndLocalFileIdentifier(shader, out _, out long localId);
+                    RequestAsset(shaderLocation, out string virtualAssetPath, false);
+                    shader = AssetDatabase.LoadAssetAtPath<Shader>(virtualAssetPath);
+                    Debug.Log($"Is supported? {shader.isSupported}");
+                    if (!shader)
+                    {
+                        continue;
+                    }
+                    AddressableShaderInfo addressableShaderInfo = oldAddressableShaders.FirstOrDefault(x => x.primaryKey == primaryKey);
+                    addressableShaderInfo.primaryKey = shaderLocation.PrimaryKey;
+                    addressableShaderInfo.identifier = localId;
+                    addressableShaderInfo.asset = shader;
+                    addressableShaderInfo.materialsWithShader ??= new List<Material>();
+                    addressableShaders.Add(addressableShaderInfo);
+                }
+            }
+            shaderInfoCache.Clear();
+            EditorUtility.SetDirty(this);
+        }
+
+        public void RebuildAssets()
+        {
+            Debug.Log("Rebuilding all assets..");
+            AssetDatabase.DeleteAsset(VIRTUAL_ASSETS_DIRECTORY);
+            AssetDatabase.DeleteAsset(GROUPS_DIRECTORY);
+            RebuildAddressableShaders();
+            foreach (var assetRequest in assetRequests)
+            {
+                RequestAsset(assetRequest, out _, false);
             }
         }
     }

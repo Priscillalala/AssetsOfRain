@@ -29,9 +29,6 @@ namespace AssetsOfRain.Editor.Browser
     {
         private static readonly FieldInfo directoryContentField = typeof(ThunderKit.Addressable.Tools.AddressableBrowser).GetField("directoryContent", BindingFlags.Instance | BindingFlags.NonPublic);
 
-        [MenuItem("CatchTheRainbow/Addressable Browser+")]
-        public static void ShowAddressableBrowserPlus() => GetWindow<AddressableBrowserPlus>();
-
         public override string Title => "Addressable Browser+";
 
         public override void OnEnable()

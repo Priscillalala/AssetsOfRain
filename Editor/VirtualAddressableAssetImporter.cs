@@ -17,9 +17,11 @@ using AssetsOfRain.Editor.Util;
 
 namespace AssetsOfRain.Editor
 {
-    [ScriptedImporter(0, "virtualaa")]
+    [ScriptedImporter(0, EXTENSION)]
     public class VirtualAddressableAssetImporter : ScriptedImporter
     {
+        public const string EXTENSION = "virtualaa";
+
         public string primaryKey;
         public string assemblyQualifiedTypeName;
 
@@ -134,10 +136,6 @@ namespace AssetsOfRain.Editor
                     DestroyImmediate(tempAsset);
                     break;
                 case GameObject:
-                    /*if (((GameObject)asset).transform.parent)
-                    {
-                        break;
-                    }*/
                     asset = Instantiate(asset);
                     GameObject prefabAsset = (GameObject)asset;
                     var componentGroups = prefabAsset.GetComponentsInChildren<MonoBehaviour>(true).GroupBy(x => x.GetType());

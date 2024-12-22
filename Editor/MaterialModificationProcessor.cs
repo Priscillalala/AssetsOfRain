@@ -13,7 +13,7 @@ using UnityEngine.ResourceManagement.ResourceProviders;
 
 namespace AssetsOfRain.Editor
 {
-    public class AssetModificationListener : AssetModificationProcessor
+    public class MaterialModificationProcessor : AssetModificationProcessor
     {
         public static string[] OnWillSaveAssets(string[] assetPaths)
         {

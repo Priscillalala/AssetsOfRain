@@ -12,7 +12,7 @@ using UnityEngine.ResourceManagement.ResourceProviders;
 
 namespace AssetsOfRain.Editor
 {
-    public class AssetPostlistener : AssetPostprocessor
+    public class MaterialPostprocessor : AssetPostprocessor
     {
         public static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths, bool didDomainReload)
         {
