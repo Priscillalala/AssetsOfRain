@@ -15,7 +15,7 @@ using UnityEditorInternal;
 using UnityEngine.Experimental.Rendering;
 using AssetsOfRain.Editor.Util;
 
-namespace AssetsOfRain.Editor
+namespace AssetsOfRain.Editor.VirtualAssets
 {
     [ScriptedImporter(0, EXTENSION)]
     public class VirtualAddressableAssetImporter : ScriptedImporter

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.AddressableAssets.Build.DataBuilders;
 using UnityEditor.Build.Content;
@@ -9,7 +10,9 @@ namespace AssetsOfRain.Editor.Building
 {
     public class ModdedAddressableAssetsBuildContext : AddressableAssetsBuildContext, IDeterministicIdentifiers
     {
-        public Unity5PackedIdentifiers deterministicIdentifier = new Unity5PackedIdentifiers();
+        private readonly Unity5PackedIdentifiers deterministicIdentifier = new Unity5PackedIdentifiers();
+
+        public Dictionary<ObjectIdentifier, long> virtualAssetIdentifiers;
 
         public string GenerateInternalFileName(string name)
         {
@@ -18,14 +21,9 @@ namespace AssetsOfRain.Editor.Building
 
         public long SerializationIndexFromObjectIdentifier(ObjectIdentifier objectID)
         {
-            string assetPath = AssetDatabase.GUIDToAssetPath(objectID.guid);
-            if (AssetDatabase.GetMainAssetTypeAtPath(assetPath) == typeof(ExternalAssetsMap))
+            if (virtualAssetIdentifiers != null && virtualAssetIdentifiers.TryGetValue(objectID, out long identifier))
             {
-                ExternalAssetsMap externalAssetsMap = AssetDatabase.LoadAssetAtPath<ExternalAssetsMap>(assetPath);
-                if (externalAssetsMap != null && externalAssetsMap.GuidToId.TryGetValue(objectID.guid.ToString(), out long identifier))
-                {
-                    return identifier;
-                }
+                return identifier;
             }
             return deterministicIdentifier.SerializationIndexFromObjectIdentifier(objectID);
         }

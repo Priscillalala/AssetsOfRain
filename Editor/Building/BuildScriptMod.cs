@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AssetsOfRain.Editor.VirtualAssets;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -7,6 +8,7 @@ using UnityEditor;
 using UnityEditor.AddressableAssets.Build;
 using UnityEditor.AddressableAssets.Build.DataBuilders;
 using UnityEditor.AddressableAssets.Settings;
+using UnityEditor.Build.Content;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 
@@ -26,6 +28,22 @@ namespace AssetsOfRain.Editor.Building
         {
             pipeline.Log(LogLevel.Information, "Building a mod with addressables!");
 
+            Dictionary<ObjectIdentifier, long> virtualAssetIdentifiers = new Dictionary<ObjectIdentifier, long>();
+            foreach (var virtualAssetPath in AssetDatabase.FindAssets($"glob:\"*.{VirtualAddressableAssetImporter.EXTENSION}\""))
+            {
+                if (AssetImporter.GetAtPath(virtualAssetPath) is not VirtualAddressableAssetImporter importer || importer.results == null)
+                {
+                    continue;
+                }
+                foreach (var result in importer.results)
+                {
+                    if (ObjectIdentifier.TryGetObjectIdentifier(result.asset, out ObjectIdentifier objectId))
+                    {
+                        virtualAssetIdentifiers[objectId] = result.identifier;
+                    }
+                }
+            }
+
             aaContext = new ModdedAddressableAssetsBuildContext
             {
                 Settings = aaContext.Settings,
@@ -35,13 +53,32 @@ namespace AssetsOfRain.Editor.Building
                 assetGroupToBundles = aaContext.assetGroupToBundles,
                 providerTypes = aaContext.providerTypes,
                 assetEntries = aaContext.assetEntries,
-                //assetFileIdentifier = new AssetFileIdentifier { pipeline = pipeline },
+                virtualAssetIdentifiers = virtualAssetIdentifiers,
             };
 
             List<AssetBundleBuild> allBundleInputDefs = (List<AssetBundleBuild>)m_AllBundleInputDefs.GetValue(this);
-            List<string> outputAssetBundleNames = (List<string>)m_OutputAssetBundleNames.GetValue(this);
             if (allBundleInputDefs != null && allBundleInputDefs.Count > 0) 
             {
+                foreach (var bundleToAssetGroupPair in aaContext.bundleToAssetGroup)
+                {
+                    if (aaContext.Settings.FindGroup(x => x.Guid == bundleToAssetGroupPair.Value) is not VirtualAddressableAssetGroup group)
+                    {
+                        continue;
+                    }
+
+                    aaContext.bundleToAssetGroup.Remove(bundleToAssetGroupPair.Key);
+                    aaContext.bundleToAssetGroup.Add(group.bundleName, bundleToAssetGroupPair.Value);
+
+                    for (int i = 0; i < allBundleInputDefs.Count; i++)
+                    {
+                        var bundleInputDef = allBundleInputDefs[i];
+                        if (bundleInputDef.assetBundleName == bundleToAssetGroupPair.Key)
+                        {
+                            bundleInputDef.assetBundleName = group.bundleName;
+                            allBundleInputDefs[i] = bundleInputDef;
+                        }
+                    }
+                }
                 /*var importedBundlePaths = AssetDatabase.FindAssets($"t:{nameof(ImportedBundle)}").Select(AssetDatabase.GUIDToAssetPath).ToArray();
                 foreach (string importedBundlePath in importedBundlePaths)
                 {
@@ -54,7 +91,7 @@ namespace AssetsOfRain.Editor.Building
                     outputAssetBundleNames.Add(assetBundleName);
                 }*/
 
-                foreach (string importedBundleGuid in AssetDatabase.FindAssets($"t:{nameof(ImportedBundle)}"))
+                /*foreach (string importedBundleGuid in AssetDatabase.FindAssets($"t:{nameof(ImportedBundle)}"))
                 {
                     AddressableAssetEntry entry = aaContext.Settings.FindAssetEntry(importedBundleGuid);
                     if (entry == null)
@@ -84,7 +121,8 @@ namespace AssetsOfRain.Editor.Building
                             allBundleInputDefs[i] = bundleInputDef;
                         }
                     }
-                }
+                }*/
+                List<string> outputAssetBundleNames = (List<string>)m_OutputAssetBundleNames.GetValue(this);
 
                 pipeline.Log(LogLevel.Information, "allBundleInputDefs:");
                 foreach (var bundleDef in allBundleInputDefs)
