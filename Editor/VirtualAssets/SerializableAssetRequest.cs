@@ -2,10 +2,10 @@
 using UnityEditor;
 using UnityEngine.ResourceManagement.ResourceLocations;
 
-namespace AssetsOfRain.Editor
+namespace AssetsOfRain.Editor.VirtualAssets
 {
     [Serializable]
-    public struct SerializedAssetLocation
+    public struct SerializableAssetRequest : IEquatable<SerializableAssetRequest>
     {
         public string primaryKey;
         public string assemblyQualifiedTypeName;
@@ -31,11 +31,19 @@ namespace AssetsOfRain.Editor
             }
         }
 
-        public SerializedAssetLocation(IResourceLocation assetLocation)
+        public readonly bool Equals(SerializableAssetRequest other)
         {
-            primaryKey = assetLocation.PrimaryKey;
-            assemblyQualifiedTypeName = cachedAssemblyQualifiedTypeName = assetLocation.ResourceType.AssemblyQualifiedName;
-            cachedAssetType = assetLocation.ResourceType;
+            return primaryKey == other.primaryKey && assemblyQualifiedTypeName == other.assemblyQualifiedTypeName;
+        }
+
+        public override readonly bool Equals(object obj)
+        {
+            return obj is SerializableAssetRequest other && Equals(other);
+        }
+
+        public override readonly int GetHashCode()
+        {
+            return HashCode.Combine(primaryKey, assemblyQualifiedTypeName);
         }
     }
 }

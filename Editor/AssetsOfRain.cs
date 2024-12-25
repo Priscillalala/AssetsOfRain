@@ -1,4 +1,5 @@
 ﻿using UnityEditor;
+using UnityEngine.AddressableAssets;
 using AddressableBrowserPlus = AssetsOfRain.Editor.Browser.AddressableBrowser;
 
 namespace AssetsOfRain.Editor
@@ -15,21 +16,30 @@ namespace AssetsOfRain.Editor
             EditorWindow.GetWindow<AddressableBrowserPlus>();
         }
 
-        [MenuItem(MENU_ROOT + "Rebuild All Shaders")]
-        public static void RebuildAllShaders()
+        [MenuItem(MENU_ROOT + "Refresh Addressable Shaders")]
+        public static void RefreshAddressableShaders()
         {
-            if (EditorUtility.DisplayDialog(NAME + ": Rebuild Shaders?", "", "Continue"))
+            if (EditorUtility.DisplayDialog(NAME + ": Refresh Shaders?", "", "Continue"))
             {
-                AssetsOfRainManager.GetInstance().RebuildAddressableShaders();
+                AssetsOfRainManager.GetInstance().RefreshVirtualShaders();
             }
         }
 
-        [MenuItem(MENU_ROOT + "Rebuild All Assets")]
-        public static void RebuildAllAssets()
+        [MenuItem(MENU_ROOT + "Refresh All Addressable Assets")]
+        public static void RefreshAllAddressableAssets()
+        {
+            if (EditorUtility.DisplayDialog(NAME + ": Refresh Assets?", "", "Continue"))
+            {
+                AssetsOfRainManager.GetInstance().RefreshVirtualAssets();
+            }
+        }
+
+        [MenuItem(MENU_ROOT + "Rebuild All Addressable Assets")]
+        public static void RebuildAllAddressableAssets()
         {
             if (EditorUtility.DisplayDialog(NAME + ": Rebuild Assets?", "", "Continue"))
             {
-                AssetsOfRainManager.GetInstance().RebuildAssets();
+                AssetsOfRainManager.GetInstance().RebuildVirtualAssets();
             }
         }
     }
