@@ -52,7 +52,7 @@ namespace AssetsOfRain.Editor
         };
 
         private static AssetsOfRainManager instance;
-        private static readonly Dictionary<int, AddressableShaderInfo> shaderInfoCache = new Dictionary<int, AddressableShaderInfo>();
+        private readonly Dictionary<int, AddressableShaderInfo> shaderInfoCache = new Dictionary<int, AddressableShaderInfo>();
 
         public static bool TryGetInstance(out AssetsOfRainManager manager)
         {
@@ -77,9 +77,11 @@ namespace AssetsOfRain.Editor
             return instance;
         }
 
-        public static string GetVirtualAssetPath(string primaryKey)
+        public static string GetVirtualAssetPath(string primaryKey, string assemblyQualifiedTypeName)
         {
-            return Path.Combine(VIRTUAL_ASSETS_DIRECTORY, Path.ChangeExtension(primaryKey, VirtualAddressableAssetImporter.EXTENSION));
+            string virtualAssetDirectory = Path.Combine(VIRTUAL_ASSETS_DIRECTORY, Path.GetDirectoryName(primaryKey));
+            string virtualAssetFileName = Path.ChangeExtension(Path.GetFileName(primaryKey), VirtualAddressableAssetImporter.EXTENSION);
+            return Path.Combine(virtualAssetDirectory, assemblyQualifiedTypeName, virtualAssetFileName);
         }
 
         public void OnEnable()
@@ -149,17 +151,31 @@ namespace AssetsOfRain.Editor
             }
         }
 
-        public bool RequestAsset(AssetRequestInfo assetRequest, out string virtualAssetPath, bool recordRequest = true)
+        public void RequestAsset(AssetRequestInfo assetRequest)
         {
             Debug.Log($"RequestAsset: {assetRequest.primaryKey}");
 
-            if (recordRequest && !assetRequests.Contains(assetRequest))
+            if (!assetRequests.Contains(assetRequest))
             {
                 assetRequests.Add(assetRequest);
                 EditorUtility.SetDirty(this);
             }
 
-            virtualAssetPath = GetVirtualAssetPath(assetRequest.primaryKey);
+            ImportVirtualAsset(assetRequest.primaryKey, assetRequest.assemblyQualifiedTypeName);
+        }
+
+        public void RemoveAsset(AssetRequestInfo assetRequest)
+        {
+            if (assetRequests.Remove(assetRequest))
+            {
+                EditorUtility.SetDirty(this);
+            }
+            DeleteVirtualAsset(assetRequest.primaryKey, assetRequest.assemblyQualifiedTypeName);
+        }
+
+        private void ImportVirtualAsset(string primaryKey, string assemblyQualifiedTypeName, out string virtualAssetPath)
+        {
+            virtualAssetPath = GetVirtualAssetPath(primaryKey, assemblyQualifiedTypeName);
             if (!File.Exists(virtualAssetPath))
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(virtualAssetPath));
@@ -168,10 +184,10 @@ namespace AssetsOfRain.Editor
             }
             if (AssetImporter.GetAtPath(virtualAssetPath) is not VirtualAddressableAssetImporter importer)
             {
-                return false;
+                return;
             }
-            importer.primaryKey = assetRequest.primaryKey;
-            importer.assemblyQualifiedTypeName = assetRequest.assemblyQualifiedTypeName;
+            importer.primaryKey = primaryKey;
+            importer.assemblyQualifiedTypeName = assemblyQualifiedTypeName;
             EditorUtility.SetDirty(importer);
             importer.SaveAndReimport();
 
@@ -192,37 +208,25 @@ namespace AssetsOfRain.Editor
                 externalGroup.externalBundleName = bundleName;
                 AssetDatabase.CreateAsset(externalGroup, groupPath);
             }*/
-
-            return true;
         }
 
-        public bool RemoveAsset(AssetRequestInfo assetRequest)
+        /*private void MoveVirtualAsset(ref string primaryKey, string newPrimaryKey, string assemblyQualifiedTypeName)
         {
-            if (assetRequests.Remove(assetRequest))
-            {
-                EditorUtility.SetDirty(this);
-            }
-            string virtualAssetPath = GetVirtualAssetPath(assetRequest.primaryKey);
-            return AssetDatabase.DeleteAsset(virtualAssetPath);
+            string oldVirtualAssetPath = GetVirtualAssetPath(primaryKey, assemblyQualifiedTypeName);
+            string newVirtualAssetPath = GetVirtualAssetPath(newPrimaryKey, assemblyQualifiedTypeName);
+            AssetDatabase.MoveAsset(oldVirtualAssetPath, newVirtualAssetPath);
+            primaryKey = newPrimaryKey;
+            ImportVirtualAsset(primaryKey, assemblyQualifiedTypeName, newVirtualAssetPath);
+        }*/
+
+        private void DeleteVirtualAsset(string primaryKey, string assemblyQualifiedTypeName)
+        {
+            string virtualAssetPath = GetVirtualAssetPath(primaryKey, assemblyQualifiedTypeName);
+            AssetDatabase.DeleteAsset(virtualAssetPath);
         }
 
-        public void RebuildAddressableShaders()
-        {
-            Debug.Log("LoadAddressableShaders");
-            HashSet<string> foundShaderKeys = new HashSet<string>();
-            List<AddressableShaderInfo> oldAddressableShaders = new List<AddressableShaderInfo>(addressableShaders);
-            addressableShaders.Clear();
-            foreach (IResourceLocator resourceLocator in Addressables.ResourceLocators)
-            {
-                foreach (var key in resourceLocator.Keys)
-                {
-                    if (!resourceLocator.Locate(key, typeof(Shader), out IList<IResourceLocation> locations))
-                    {
-                        continue;
-                    }
-                    var shaderLocation = locations.FirstOrDefault();
-                    string primaryKey = shaderLocation.PrimaryKey;
-                    if (shaderLocation == null || !foundShaderKeys.Add(primaryKey))
+        /*string primaryKey = shaderLocation.PrimaryKey;
+                    if (!foundShaderKeys.Add(primaryKey))
                     {
                         continue;
                     }
@@ -239,9 +243,26 @@ namespace AssetsOfRain.Editor
                     Debug.Log($"At: {primaryKey}: {shader.name}");
 
                     AssetDatabase.TryGetGUIDAndLocalFileIdentifier(shader, out _, out long localId);
-                    RequestAsset(shaderLocation, out string virtualAssetPath, false);
+
+                    int oldAddressableShaderIndex = oldAddressableShaders.FindIndex(x => x.primaryKey == primaryKey);
+                    if (oldAddressableShaderIndex < 0)
+                    {
+                        oldAddressableShaderIndex = oldAddressableShaders.FindIndex(x => Path.GetFileName(x.primaryKey) == Path.GetFileName(primaryKey));
+                    }
+                    AddressableShaderInfo addressableShaderInfo;
+                    if (oldAddressableShaderIndex < 0)
+                    {
+                        addressableShaderInfo = default;
+                    }
+                    else
+                    {
+
+                    }
+
+
+
+                    ImportVirtualAsset(primaryKey, typeof(Shader).AssemblyQualifiedName);
                     shader = AssetDatabase.LoadAssetAtPath<Shader>(virtualAssetPath);
-                    Debug.Log($"Is supported? {shader.isSupported}");
                     if (!shader)
                     {
                         continue;
@@ -251,23 +272,101 @@ namespace AssetsOfRain.Editor
                     addressableShaderInfo.identifier = localId;
                     addressableShaderInfo.asset = shader;
                     addressableShaderInfo.materialsWithShader ??= new List<Material>();
-                    addressableShaders.Add(addressableShaderInfo);
+                    addressableShaders.Add(addressableShaderInfo);*/
+
+        public AsyncOperationHandle RefreshAddressableShaders()
+        {
+            Debug.Log("previousAddressableShaders");
+
+            HashSet<string> foundShaderKeys = new HashSet<string>();
+            List<IResourceLocation> uniqueShaderLocations = new List<IResourceLocation>();
+            foreach (IResourceLocator resourceLocator in Addressables.ResourceLocators)
+            {
+                foreach (var key in resourceLocator.Keys)
+                {
+                    if (!resourceLocator.Locate(key, typeof(Shader), out IList<IResourceLocation> locations))
+                    {
+                        continue;
+                    }
+                    var shaderLocation = locations.FirstOrDefault();
+                    if (shaderLocation != null && foundShaderKeys.Add(shaderLocation.PrimaryKey))
+                    {
+                        if (shaderLocation.PrimaryKey != "RoR2/Base/Shaders/HGStandard.shader" && shaderLocation.PrimaryKey != "RoR2/Base/Shaders/HGCloudRemap.shader")
+                        {
+                            continue;
+                        }
+                        Debug.Log($"Unique shader: {shaderLocation.PrimaryKey}");
+                        uniqueShaderLocations.Add(shaderLocation);
+                    }
                 }
             }
-            shaderInfoCache.Clear();
-            EditorUtility.SetDirty(this);
+            var asyncOp = Addressables.LoadAssetsAsync<Shader>(uniqueShaderLocations, null, false);
+            asyncOp.Completed += handle =>
+            {
+                List<AddressableShaderInfo> previousAddressableShaders = new List<AddressableShaderInfo>(addressableShaders);
+                addressableShaders.Clear();
+
+                for (int i = 0; i < uniqueShaderLocations.Count; i++)
+                {
+                    IResourceLocation shaderLocation = uniqueShaderLocations[i];
+                    Shader shader = handle.Result[i];
+                    if (!shader || ignoredShaderDirectories.Any(x => shader.name.StartsWith(x)))
+                    {
+                        continue;
+                    }
+                    AssetDatabase.TryGetGUIDAndLocalFileIdentifier(shader, out _, out long localId);
+                    string primaryKey = shaderLocation.PrimaryKey;
+                    ImportVirtualAsset(primaryKey, typeof(Shader).AssemblyQualifiedName, out string virtualAssetPath);
+                    shader = AssetDatabase.LoadAssetAtPath<Shader>(virtualAssetPath);
+                    if (!shader)
+                    {
+                        continue;
+                    }
+                    AddressableShaderInfo addressableShaderInfo = default;
+                    int previousAddressableShaderIndex = previousAddressableShaders.FindIndex(info => info.primaryKey == primaryKey);
+                    if (previousAddressableShaderIndex >= 0)
+                    {
+                        addressableShaderInfo = previousAddressableShaders[previousAddressableShaderIndex];
+                        previousAddressableShaders.RemoveAt(previousAddressableShaderIndex);
+                    }; 
+                    addressableShaderInfo.primaryKey = primaryKey;
+                    addressableShaderInfo.identifier = localId;
+                    addressableShaderInfo.asset = shader;
+                    addressableShaderInfo.materialsWithShader ??= new List<Material>();
+                    addressableShaders.Add(addressableShaderInfo);
+                }
+                foreach (var remainingAddressableShaderInfo in previousAddressableShaders)
+                {
+                    DeleteVirtualAsset(remainingAddressableShaderInfo.primaryKey, typeof(Shader).AssemblyQualifiedName);
+                }
+                shaderInfoCache.Clear();
+                EditorUtility.SetDirty(this);
+            };
+            return asyncOp;
+        }
+
+        public void RefreshAssets()
+        {
+            Debug.Log("Refreshing all assets..");
+            AssetDatabase.DeleteAsset(GROUPS_DIRECTORY);
+            RefreshAddressableShaders();
+            for (int i = assetRequests.Count - 1; i >= 0; i--)
+            {
+                AssetRequestInfo assetRequest = assetRequests[i];
+                ImportVirtualAsset(assetRequest.primaryKey, assetRequest.assemblyQualifiedTypeName, out string virtualAssetPath);
+                Type assetType = AssetDatabase.GetMainAssetTypeAtPath(virtualAssetPath);
+                if (assetType == null || assetType.AssemblyQualifiedName != assetRequest.assemblyQualifiedTypeName)
+                {
+                    RemoveAsset(assetRequest);
+                }
+            }
         }
 
         public void RebuildAssets()
         {
-            Debug.Log("Rebuilding all assets..");
+            Debug.Log("REBUILDING all assets..");
             AssetDatabase.DeleteAsset(VIRTUAL_ASSETS_DIRECTORY);
-            AssetDatabase.DeleteAsset(GROUPS_DIRECTORY);
-            RebuildAddressableShaders();
-            foreach (var assetRequest in assetRequests)
-            {
-                RequestAsset(assetRequest, out _, false);
-            }
+            RefreshAssets();
         }
     }
 }
