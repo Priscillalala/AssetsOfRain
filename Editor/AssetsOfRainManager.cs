@@ -52,7 +52,6 @@ namespace AssetsOfRain.Editor
         };
 
         private static AssetsOfRainManager instance;
-        private readonly Dictionary<int, AddressableShaderInfo> shaderInfoCache = new Dictionary<int, AddressableShaderInfo>();
 
         public static bool TryGetInstance(out AssetsOfRainManager manager)
         {
@@ -82,73 +81,6 @@ namespace AssetsOfRain.Editor
             string virtualAssetDirectory = Path.Combine(VIRTUAL_ASSETS_DIRECTORY, Path.GetDirectoryName(primaryKey));
             string virtualAssetFileName = Path.ChangeExtension(Path.GetFileName(primaryKey), VirtualAddressableAssetImporter.EXTENSION);
             return Path.Combine(virtualAssetDirectory, assemblyQualifiedTypeName, virtualAssetFileName);
-        }
-
-        public void OnEnable()
-        {
-            ObjectChangeEvents.changesPublished += OnChangesPublished;
-        }
-
-        public void OnDisable()
-        {
-            ObjectChangeEvents.changesPublished -= OnChangesPublished;
-        }
-
-        private void OnChangesPublished(ref ObjectChangeEventStream stream)
-        {
-            Debug.Log($"OnChangesPublished ({stream.length}) changes");
-            for (int i = 0; i < stream.length; i++)
-            {
-                switch (stream.GetEventType(i))
-                {
-                    case ObjectChangeKind.CreateAssetObject:
-                        stream.GetCreateAssetObjectEvent(i, out var createAssetObjectEventArgs);
-                        if (EditorUtility.InstanceIDToObject(createAssetObjectEventArgs.instanceId) is Material createdMaterial)
-                        {
-                            OnMaterialPropertiesChanged(createdMaterial);
-                        }
-                        break;
-                    case ObjectChangeKind.ChangeAssetObjectProperties:
-                        stream.GetChangeAssetObjectPropertiesEvent(i, out var changeAssetObjectPropertiesEventArgs);
-                        if (EditorUtility.InstanceIDToObject(changeAssetObjectPropertiesEventArgs.instanceId) is Material changedMaterial)
-                        {
-                            OnMaterialPropertiesChanged(changedMaterial);
-                        }
-                        break;
-                }
-            }
-        }
-
-        public void OnMaterialPropertiesChanged(Material material)
-        {
-            Shader shader = material.shader;
-            if (shader == null)
-            {
-                return;
-            }
-            //Debug.Log($"Properties changed at {AssetDatabase.GUIDToAssetPath(data.guid)}");
-            int shaderInstanceId = material.shader.GetInstanceID();
-            if (!shaderInfoCache.TryGetValue(shaderInstanceId, out var addressableShaderInfo))
-            {
-                addressableShaderInfo = addressableShaders.FirstOrDefault(x => x.asset == shader);
-                shaderInfoCache.Add(shaderInstanceId, addressableShaderInfo);
-            }
-            if (addressableShaderInfo.materialsWithShader != null && !addressableShaderInfo.materialsWithShader.Contains(material))
-            {
-                Debug.Log($"Adding material {material.name} to addressable shader list {addressableShaderInfo.primaryKey}");
-                foreach (var otherAddressableShaderInfo in addressableShaders)
-                {
-                    otherAddressableShaderInfo.materialsWithShader?.Remove(material);
-                }
-                addressableShaderInfo.materialsWithShader.Add(material);
-                EditorUtility.SetDirty(this);
-            }
-            if (addressableShaderInfo.asset != null)
-            {
-                Debug.Log($"Setting material {material.name} to use shader {addressableShaderInfo.asset.name} temporarily");
-                AssetDatabase.SaveAssetIfDirty(material);
-                material.shader = Addressables.LoadAssetAsync<Shader>(addressableShaderInfo.primaryKey).WaitForCompletion();
-            }
         }
 
         public void RequestAsset(AssetRequestInfo assetRequest)

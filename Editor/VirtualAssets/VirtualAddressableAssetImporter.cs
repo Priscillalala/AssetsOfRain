@@ -118,11 +118,11 @@ namespace AssetsOfRain.Editor.VirtualAssets
             {
                 case Shader:
                     newRepresentation = false;
-                    var addressableShaderInfo = AssetsOfRainManager.GetInstance().addressableShaders.FirstOrDefault(x => x.identifier == identifier);
-                    if (addressableShaderInfo.asset && AssetDatabase.GetAssetPath(addressableShaderInfo.asset) != ctx.assetPath)
+                    Shader shader = Shader.Find(name);
+                    if (shader && AssetDatabase.GetAssetPath(asset) != ctx.assetPath)
                     {
                         Debug.LogWarning($"Found existing shader representation for asset {asset.name}");
-                        return addressableShaderInfo.asset;
+                        return shader;
                     }
                     else
                     {

@@ -1,4 +1,4 @@
-#if false
+using AssetsOfRain.Editor.VirtualAssets;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -12,9 +12,9 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.ResourceManagement.ResourceLocations;
 using UnityEngine.ResourceManagement.ResourceProviders;
 
-namespace AssetsOfRain.Editor
+namespace AssetsOfRain.Editor.Materials
 {
-    public class MaterialModificationProcessor : AssetModificationProcessor
+    public class MaterialSaveProcessor : AssetModificationProcessor
     {
         public static string[] OnWillSaveAssets(string[] assetPaths)
         {
@@ -32,27 +32,26 @@ namespace AssetsOfRain.Editor
                     continue;
                 }
                 Debug.Log($"OnWillSaveAssets is worried about {material.name}");
-                if (!AssetsOfRainManager.TryGetInstance(out var manager))
+                using SerializedObject serializedMaterial = new SerializedObject(material);
+                Shader serializedShader = serializedMaterial.FindProperty("m_Shader").objectReferenceValue as Shader;
+                string serializedShaderAssetPath = AssetDatabase.GetAssetPath(serializedShader);
+                if (string.IsNullOrEmpty(serializedShaderAssetPath) || AssetImporter.GetAtPath(serializedShaderAssetPath) is not VirtualAddressableAssetImporter importer)
                 {
                     continue;
                 }
-                var addressableShaderInfo = manager.addressableShaders.FirstOrDefault(x => x.materialsWithShader.Contains(material));
-                if (addressableShaderInfo.asset != null)
+                Debug.Log($"OnWillSaveAssets Set material {material.name} to use {importer.primaryKey}");
+                material.shader = serializedShader;
+                string primaryKey = importer.primaryKey;
+                EditorApplication.delayCall += delegate
                 {
-                    Debug.Log($"OnWillSaveAssets Set material {material.name} to use {addressableShaderInfo.primaryKey}");
-                    material.shader = addressableShaderInfo.asset;
-                    EditorApplication.delayCall += delegate
+                    if (material)
                     {
-                        if (material)
-                        {
-                            material.shader = Addressables.LoadAssetAsync<Shader>(addressableShaderInfo.primaryKey).WaitForCompletion();
-                            Debug.Log($"OnWillSaveAssets Set material {material.name} to use working shader again");
-                        }
-                    };
-                }
+                        material.shader = Addressables.LoadAssetAsync<Shader>(primaryKey).WaitForCompletion();
+                        Debug.Log($"OnWillSaveAssets Set material {material.name} to use working shader again");
+                    }
+                };
             }
             return assetPaths;
         }
     }
 }
-#endif
