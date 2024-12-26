@@ -5,6 +5,10 @@ using System.IO;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.ResourceManagement.ResourceLocations;
+using UnityEngine.ResourceManagement.ResourceProviders;
+using System.Linq;
+using UnityEditor.AddressableAssets;
+using UnityEditor.AddressableAssets.Settings.GroupSchemas;
 
 namespace AssetsOfRain.Editor.VirtualAssets
 {
@@ -51,28 +55,46 @@ namespace AssetsOfRain.Editor.VirtualAssets
             {
                 return;
             }
-            importer.primaryKey = assetRequest.primaryKey;
-            importer.assemblyQualifiedTypeName = assetRequest.assemblyQualifiedTypeName;
+            importer.request = assetRequest;
+            //importer.primaryKey = assetRequest.primaryKey;
+            //importer.assemblyQualifiedTypeName = assetRequest.assemblyQualifiedTypeName;
             EditorUtility.SetDirty(importer);
             importer.SaveAndReimport();
 
-            /*AddressableAssetSettings aaSettings = AddressableAssetSettingsDefaultObject.Settings;
+            IResourceLocation assetLocation = assetRequest.AssetLocation;
+            IResourceLocation bundleLocation = assetLocation.Dependencies.FirstOrDefault(x => x.Data is AssetBundleRequestOptions);
+            if (bundleLocation == null)
+            {
+                return;
+            }
+            AssetBundleRequestOptions assetBundleRequestOptions = (AssetBundleRequestOptions)bundleLocation.Data;
 
+            AddressableAssetSettings aaSettings = AddressableAssetSettingsDefaultObject.Settings;
 
-            string groupName = fileName.Substring(0, endIndex);
-            string groupPath = Path.Combine(testDirectory, Path.ChangeExtension(groupName, "asset")); 
+            string bundleFileName = Path.GetFileNameWithoutExtension(bundleLocation.InternalId);
+            string groupName = bundleFileName[..bundleFileName.LastIndexOf("_assets_")];
+            string groupPath = Path.Combine(groupsDirectory, Path.ChangeExtension(groupName, "asset")); 
             
             string bundleName = Path.ChangeExtension(assetBundleRequestOptions.BundleName, "bundle");
 
-            ExternalAddressableAssetGroup externalGroup = AssetDatabase.LoadAssetAtPath<ExternalAddressableAssetGroup>(groupPath);
-            if (!externalGroup)
+            VirtualAddressableAssetGroup group = AssetDatabase.LoadAssetAtPath<VirtualAddressableAssetGroup>(groupPath);
+            if (!group)
             {
-                externalGroup = ScriptableObject.CreateInstance<ExternalAddressableAssetGroup>();
-                //externalGroup.Initialize(this, validName, GUID.Generate().ToString(), readOnly);
-                externalGroup.Name = groupName;
-                externalGroup.externalBundleName = bundleName;
-                AssetDatabase.CreateAsset(externalGroup, groupPath);
-            }*/
+                group = ScriptableObject.CreateInstance<VirtualAddressableAssetGroup>();
+                //group.Initialize(this, validName, GUID.Generate().ToString(), readOnly);
+                group.Name = groupName;
+                group.bundleName = bundleName;
+                BundledAssetGroupSchema bundledAssetGroupSchema = group.AddSchema<BundledAssetGroupSchema>();
+                //bundledAssetGroupSchema.LoadPath
+                bundledAssetGroupSchema.UseAssetBundleCrc = false;
+                bundledAssetGroupSchema.UseAssetBundleCrcForCachedBundles = false;
+                bundledAssetGroupSchema.IncludeAddressInCatalog = false;
+                bundledAssetGroupSchema.IncludeGUIDInCatalog = false;
+                bundledAssetGroupSchema.IncludeLabelsInCatalog = false;
+                bundledAssetGroupSchema.BundleNaming = BundledAssetGroupSchema.BundleNamingStyle.NoHash;
+                AssetDatabase.CreateAsset(group, groupPath);
+            }
+            aaSettings.CreateOrMoveEntry(AssetDatabase.AssetPathToGUID(virtualAssetPath), group);
         }
 
         public void DeleteVirtualAsset(SerializableAssetRequest assetRequest)

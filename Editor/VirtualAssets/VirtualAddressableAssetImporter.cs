@@ -22,8 +22,10 @@ namespace AssetsOfRain.Editor.VirtualAssets
     {
         public const string EXTENSION = "virtualaa";
 
-        public string primaryKey;
-        public string assemblyQualifiedTypeName;
+        public SerializableAssetRequest request;
+
+        //public string primaryKey;
+        //public string assemblyQualifiedTypeName;
 
         [Serializable]
         public struct Result
@@ -36,15 +38,19 @@ namespace AssetsOfRain.Editor.VirtualAssets
 
         public override void OnImportAsset(AssetImportContext ctx)
         {
-            if (string.IsNullOrEmpty(primaryKey))
+            /*if (string.IsNullOrEmpty(primaryKey))
             {
                 return;
             }
 
-            Type assetType = Type.GetType(assemblyQualifiedTypeName);
+            Type assetType = Type.GetType(assemblyQualifiedTypeName);*/
 
-            IResourceLocation assetLocation = Addressables.LoadResourceLocationsAsync(primaryKey, assetType).WaitForCompletion().FirstOrDefault();
-            AsyncOperationHandle asyncOp = Addressables.ResourceManager.ProvideResource(assetLocation, assetType, true);
+            IResourceLocation assetLocation = request.AssetLocation;//Addressables.LoadResourceLocationsAsync(primaryKey, assetType).WaitForCompletion().FirstOrDefault();
+            if (assetLocation == null)
+            {
+                return;
+            }
+            AsyncOperationHandle asyncOp = Addressables.ResourceManager.ProvideResource(assetLocation, request.AssetType, true);
             Object asset = (Object)asyncOp.WaitForCompletion();
             if (!asset)
             {

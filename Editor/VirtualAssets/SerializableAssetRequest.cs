@@ -1,5 +1,8 @@
-﻿using System;
+﻿using AssetsOfRain.Editor.Util;
+using System;
+using System.Linq;
 using UnityEditor;
+using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.ResourceLocations;
 
 namespace AssetsOfRain.Editor.VirtualAssets
@@ -10,24 +13,43 @@ namespace AssetsOfRain.Editor.VirtualAssets
         public string primaryKey;
         public string assemblyQualifiedTypeName;
 
-        private string cachedAssemblyQualifiedTypeName;
+        //private string cachedPrimaryKey;
+        private IResourceLocation cachedAssetLocation;
+        //private string cachedAssemblyQualifiedTypeName;
         private Type cachedAssetType;
 
         public Type AssetType
         {
             get
             {
-                if (cachedAssemblyQualifiedTypeName != assemblyQualifiedTypeName)
+                if (cachedAssetType == null || cachedAssetType.AssemblyQualifiedName != assemblyQualifiedTypeName)
                 {
-                    cachedAssemblyQualifiedTypeName = assemblyQualifiedTypeName ?? string.Empty;
-                    cachedAssetType = Type.GetType(cachedAssemblyQualifiedTypeName);
+                    cachedAssetType = Type.GetType(assemblyQualifiedTypeName ?? string.Empty);
                 }
                 return cachedAssetType;
             }
             set
             {
-                assemblyQualifiedTypeName = cachedAssemblyQualifiedTypeName = value.AssemblyQualifiedName;
+                assemblyQualifiedTypeName = value.AssemblyQualifiedName;
                 cachedAssetType = value;
+            }
+        }
+
+        public IResourceLocation AssetLocation
+        {
+            get
+            {
+                if (cachedAssetLocation == null || cachedAssetLocation.PrimaryKey != primaryKey || cachedAssetLocation.ResourceType != AssetType)
+                {
+                    cachedAssetLocation = Addressables.LoadResourceLocationsAsync(primaryKey ?? string.Empty, AssetType).WaitForCompletion().FirstOrDefault();
+                }
+                return cachedAssetLocation;
+            }
+            set
+            {
+                primaryKey = value.PrimaryKey;
+                AssetType = value.ResourceType;
+                cachedAssetLocation = value;
             }
         }
 
