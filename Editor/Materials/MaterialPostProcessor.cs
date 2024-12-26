@@ -32,14 +32,14 @@ namespace AssetsOfRain.Editor.Materials
                         stream.GetCreateAssetObjectEvent(i, out var createAssetObjectEventArgs);
                         if (EditorUtility.InstanceIDToObject(createAssetObjectEventArgs.instanceId) is Material createdMaterial)
                         {
-                            OnMaterialPropertiesChanged(createdMaterial);
+                            OnMaterialPropertiesChanged(createdMaterial, true);
                         }
                         break;
                     case ObjectChangeKind.ChangeAssetObjectProperties:
                         stream.GetChangeAssetObjectPropertiesEvent(i, out var changeAssetObjectPropertiesEventArgs);
                         if (EditorUtility.InstanceIDToObject(changeAssetObjectPropertiesEventArgs.instanceId) is Material changedMaterial)
                         {
-                            OnMaterialPropertiesChanged(changedMaterial);
+                            OnMaterialPropertiesChanged(changedMaterial, false);
                         }
                         break;
                 }
@@ -51,7 +51,7 @@ namespace AssetsOfRain.Editor.Materials
             foreach (Material material in importedAssets.SelectMany(x => AssetDatabase.LoadAllAssetsAtPath(x).OfType<Material>()))
             {
                 Debug.Log($"OnPostprocessAllAssets: imported material {material.name}");
-                OnMaterialPropertiesChanged(material);
+                OnMaterialPropertiesChanged(material, true);
             }
             if (!didDomainReload)
             {
@@ -71,16 +71,23 @@ namespace AssetsOfRain.Editor.Materials
                 {
                     continue;
                 }
-                Shader shader = Addressables.LoadAssetAsync<Shader>(importer.request.AssetLocation).WaitForCompletion();
-                foreach (Material material in materialsWithShaderGroup)
+                var loadShaderOp = Addressables.LoadAssetAsync<Shader>(importer.request.AssetLocation);
+                loadShaderOp.Completed += handle =>
                 {
-                    Debug.Log($"OnPostprocessAllAssets set {material.name} shader");
-                    material.shader = shader;
-                }
+                    Shader shader = handle.Result;
+                    foreach (Material material in materialsWithShaderGroup)
+                    {
+                        if (material)
+                        {
+                            Debug.Log($"OnPostprocessAllAssets set {material.name} shader");
+                            material.shader = shader;
+                        }
+                    }
+                };
             }
         }
 
-        public static void OnMaterialPropertiesChanged(Material material)
+        public static void OnMaterialPropertiesChanged(Material material, bool wasSaved)
         {
             Shader shader = material.shader;
             if (shader == null)
@@ -92,9 +99,15 @@ namespace AssetsOfRain.Editor.Materials
             {
                 return;
             }
-            Debug.Log($"Setting material {material.name} to use shader {importer.request.primaryKey} temporarily");
-            AssetDatabase.SaveAssetIfDirty(material);
-            material.shader = Addressables.LoadAssetAsync<Shader>(importer.request.AssetLocation).WaitForCompletion();
+            if (wasSaved)
+            {
+                Debug.Log($"Setting material {material.name} to use shader {importer.request.primaryKey} temporarily");
+                material.shader = Addressables.LoadAssetAsync<Shader>(importer.request.AssetLocation).WaitForCompletion();
+            }
+            else
+            {
+                AssetDatabase.SaveAssetIfDirty(material);
+            }
         }
     }
 }

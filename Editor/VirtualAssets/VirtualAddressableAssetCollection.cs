@@ -10,14 +10,20 @@ using System.Linq;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings.GroupSchemas;
 using Object = UnityEngine.Object;
+using System.Reflection;
 
 namespace AssetsOfRain.Editor.VirtualAssets
 {
     [Serializable]
     public class VirtualAddressableAssetCollection
     {
+        private static readonly FieldInfo m_Id = typeof(ProfileValueReference).GetField("m_Id", BindingFlags.Instance | BindingFlags.NonPublic);
+
+        [SerializeField]
         private readonly string directory;
+        [SerializeField]
         private readonly string groupsDirectory;
+        [SerializeField]
         private readonly List<SerializableAssetRequest> assetRequests;
 
         public VirtualAddressableAssetCollection(string directory, string groupsDirectory)
@@ -86,16 +92,17 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 group.Name = groupName;
                 group.bundleName = bundleName;
                 BundledAssetGroupSchema bundledAssetGroupSchema = group.AddSchema<BundledAssetGroupSchema>();
-                //bundledAssetGroupSchema.LoadPath
+                m_Id.SetValue(bundledAssetGroupSchema.LoadPath, "{CatchTheRainbow.CatchTheRainbowPlugin.AddressablesRuntimePath}/StandaloneWindows64");
                 bundledAssetGroupSchema.UseAssetBundleCrc = false;
                 bundledAssetGroupSchema.UseAssetBundleCrcForCachedBundles = false;
                 bundledAssetGroupSchema.IncludeAddressInCatalog = false;
                 bundledAssetGroupSchema.IncludeGUIDInCatalog = false;
                 bundledAssetGroupSchema.IncludeLabelsInCatalog = false;
                 bundledAssetGroupSchema.BundleNaming = BundledAssetGroupSchema.BundleNamingStyle.NoHash;
+                Directory.CreateDirectory(groupsDirectory);
                 AssetDatabase.CreateAsset(group, groupPath);
             }
-            aaSettings.CreateOrMoveEntry(AssetDatabase.AssetPathToGUID(virtualAssetPath), group);
+            aaSettings.CreateOrMoveEntry(AssetDatabase.AssetPathToGUID(virtualAssetPath), group, true);
         }
 
         public void DeleteVirtualAsset(SerializableAssetRequest assetRequest)

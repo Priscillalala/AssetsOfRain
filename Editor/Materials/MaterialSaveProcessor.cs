@@ -18,7 +18,6 @@ namespace AssetsOfRain.Editor.Materials
     {
         public static string[] OnWillSaveAssets(string[] assetPaths)
         {
-            Debug.Log("OnWillSaveAssets");
             foreach (var assetPath in assetPaths)
             {
                 Material material = AssetDatabase.LoadAssetAtPath<Material>(assetPath);
@@ -27,29 +26,27 @@ namespace AssetsOfRain.Editor.Materials
                     continue;
                 }
                 Debug.Log($"OnWillSaveAssets looked at {material.name}");
-                if (!string.IsNullOrEmpty(AssetDatabase.GetAssetPath(material.shader)))
+                Shader shader = material.shader;
+                if (!string.IsNullOrEmpty(AssetDatabase.GetAssetPath(shader)))
                 {
                     continue;
                 }
                 Debug.Log($"OnWillSaveAssets is worried about {material.name}");
-                using SerializedObject serializedMaterial = new SerializedObject(material);
-                Shader serializedShader = serializedMaterial.FindProperty("m_Shader").objectReferenceValue as Shader;
-                string serializedShaderAssetPath = AssetDatabase.GetAssetPath(serializedShader);
-                if (string.IsNullOrEmpty(serializedShaderAssetPath) || AssetImporter.GetAtPath(serializedShaderAssetPath) is not VirtualAddressableAssetImporter importer)
+
+                Shader serializableShader = Shader.Find(shader.name);
+                if (serializableShader == shader)
+                {
+                    continue;
+                }
+                Debug.Log($"serializableShader: {serializableShader}");
+                string serializableShaderAssetPath = AssetDatabase.GetAssetPath(serializableShader);
+                Debug.Log($"serializedShaderAssetPath: {serializableShaderAssetPath}");
+                if (string.IsNullOrEmpty(serializableShaderAssetPath) || AssetImporter.GetAtPath(serializableShaderAssetPath) is not VirtualAddressableAssetImporter importer)
                 {
                     continue;
                 }
                 Debug.Log($"OnWillSaveAssets Set material {material.name} to use {importer.request.primaryKey}");
-                Shader shader = material.shader;
-                material.shader = serializedShader;
-                EditorApplication.delayCall += delegate
-                {
-                    if (material && shader)
-                    {
-                        material.shader = shader;
-                        Debug.Log($"OnWillSaveAssets Set material {material.name} to use working shader again");
-                    }
-                };
+                material.shader = serializableShader;
             }
             return assetPaths;
         }

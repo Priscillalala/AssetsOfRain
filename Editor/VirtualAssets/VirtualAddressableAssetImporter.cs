@@ -75,7 +75,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
             else
             {
                 AssetDatabase.TryGetGUIDAndLocalFileIdentifier(asset, out _, out long localId);
-                Object assetRepresentation = GetAssetRepresentation(asset, localId, ctx, out bool newRepresentation);
+                Object assetRepresentation = GetAssetRepresentation(asset, localId, ctx, out bool newRepresentation, out bool recurseDependencies);
                 assetRepresentations[assetInstanceId] = assetRepresentation;
                 assetRepresentations[assetRepresentation.GetInstanceID()] = assetRepresentation;
                 if (!newRepresentation)
@@ -91,6 +91,10 @@ namespace AssetsOfRain.Editor.VirtualAssets
                     asset = asset,
                     identifier = localId,
                 });
+                if (!recurseDependencies)
+                {
+                    return asset;
+                }
             }
 
             using SerializedObject serializedAsset = new SerializedObject(asset);
@@ -116,22 +120,24 @@ namespace AssetsOfRain.Editor.VirtualAssets
             return asset;
         }
 
-        public static Object GetAssetRepresentation(Object asset, long identifier, AssetImportContext ctx, out bool newRepresentation)
+        public static Object GetAssetRepresentation(Object asset, long identifier, AssetImportContext ctx, out bool newRepresentation, out bool recurseDependencies)
         {
             string name = asset.name;
             newRepresentation = true;
+            recurseDependencies = true;
             switch (asset)
             {
                 case Shader:
-                    newRepresentation = false;
                     Shader shader = Shader.Find(name);
                     if (shader && AssetDatabase.GetAssetPath(asset) != ctx.assetPath)
                     {
+                        newRepresentation = false;
                         Debug.LogWarning($"Found existing shader representation for asset {asset.name}");
                         return shader;
                     }
                     else
                     {
+                        recurseDependencies = false;
                         asset = Instantiate(asset);
                     }
                     break;
