@@ -129,7 +129,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
             {
                 case Shader:
                     Shader shader = Shader.Find(name);
-                    if (shader && AssetDatabase.GetAssetPath(asset) != ctx.assetPath)
+                    if (shader && AssetDatabase.GetAssetPath(shader) != ctx.assetPath)
                     {
                         newRepresentation = false;
                         Debug.LogWarning($"Found existing shader representation for asset {asset.name}");
@@ -181,6 +181,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
                         outputTex.Apply(false, true);
                         RenderTexture.active = previous;
                         RenderTexture.ReleaseTemporary(renderTex);
+                        outputTex.alphaIsTransparency = srcTex.alphaIsTransparency;
                         return outputTex;
                     }
                     asset = DuplicateTexture(texAsset);

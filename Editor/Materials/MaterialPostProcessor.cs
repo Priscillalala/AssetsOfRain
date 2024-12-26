@@ -57,20 +57,46 @@ namespace AssetsOfRain.Editor.Materials
             {
                 return;
             }
+            EditorApplication.delayCall += UpdateAfterDomainReload;
+        }
+
+        public static void UpdateAfterDomainReload()
+        {
             Debug.Log("OnPostprocessAllAssets: reloading shaders");
+
+            static string GetShaderAssetPath(Material material)
+            {
+                if (material.shader && material.shader.isSupported)
+                {
+                    return AssetDatabase.GetAssetPath(material.shader);
+                }
+                if (MaterialDataStorage.instance.materialToPersistentShader.TryGetValue(material.GetInstanceID(), out Shader persistentShader))
+                {
+                    Debug.LogWarning($"Found persistent shader for {material.name}: shader is {persistentShader.name}");
+                    return AssetDatabase.GetAssetPath(persistentShader);
+                }
+                return null;
+            }
 
             var allMaterialsByShader = AssetDatabase.FindAssets($"t:{nameof(Material)}")
                 .Select(AssetDatabase.GUIDToAssetPath)
                 .Distinct()
                 .SelectMany(AssetDatabase.LoadAllAssetsAtPath)
                 .OfType<Material>()
-                .GroupBy(x => AssetDatabase.GetAssetPath(x.shader));
+                .GroupBy(GetShaderAssetPath);
             foreach (var materialsWithShaderGroup in allMaterialsByShader)
             {
-                if (AssetImporter.GetAtPath(materialsWithShaderGroup.Key) is not VirtualAddressableAssetImporter importer)
+                if (string.IsNullOrEmpty(materialsWithShaderGroup.Key) || AssetImporter.GetAtPath(materialsWithShaderGroup.Key) is not VirtualAddressableAssetImporter importer || !typeof(Shader).IsAssignableFrom(importer.request.AssetType))
                 {
                     continue;
                 }
+                /*Shader shader = Addressables.LoadAssetAsync<Shader>(importer.request.AssetLocation).WaitForCompletion();
+                foreach (Material material in materialsWithShaderGroup)
+                {
+                    Debug.Log($"OnPostprocessAllAssets set {material.name} shader");
+                    MaterialDataStorage.instance.materialToPersistentShader[material.GetInstanceID()] = AssetDatabase.LoadAssetAtPath<Shader>(materialsWithShaderGroup.Key);
+                    material.shader = shader;
+                }*/
                 var loadShaderOp = Addressables.LoadAssetAsync<Shader>(importer.request.AssetLocation);
                 loadShaderOp.Completed += handle =>
                 {
@@ -80,10 +106,15 @@ namespace AssetsOfRain.Editor.Materials
                         if (material)
                         {
                             Debug.Log($"OnPostprocessAllAssets set {material.name} shader");
+                            MaterialDataStorage.instance.materialToPersistentShader[material.GetInstanceID()] = AssetDatabase.LoadAssetAtPath<Shader>(materialsWithShaderGroup.Key);
                             material.shader = shader;
                         }
                     }
                 };
+                /*EditorApplication.delayCall += delegate
+                {
+                    
+                };*/
             }
         }
 
@@ -95,17 +126,19 @@ namespace AssetsOfRain.Editor.Materials
                 return;
             }
             string shaderAssetPath = AssetDatabase.GetAssetPath(shader);
-            if (string.IsNullOrEmpty(shaderAssetPath) || AssetImporter.GetAtPath(shaderAssetPath) is not VirtualAddressableAssetImporter importer)
+            if (string.IsNullOrEmpty(shaderAssetPath) || AssetImporter.GetAtPath(shaderAssetPath) is not VirtualAddressableAssetImporter importer || !typeof(Shader).IsAssignableFrom(importer.request.AssetType))
             {
                 return;
             }
             if (wasSaved)
             {
                 Debug.Log($"Setting material {material.name} to use shader {importer.request.primaryKey} temporarily");
+                MaterialDataStorage.instance.materialToPersistentShader[material.GetInstanceID()] = shader;
                 material.shader = Addressables.LoadAssetAsync<Shader>(importer.request.AssetLocation).WaitForCompletion();
             }
             else
             {
+                Debug.Log($"saving material {material.name} to reimport");
                 AssetDatabase.SaveAssetIfDirty(material);
             }
         }

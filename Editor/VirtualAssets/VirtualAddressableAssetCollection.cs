@@ -20,11 +20,11 @@ namespace AssetsOfRain.Editor.VirtualAssets
         private static readonly FieldInfo m_Id = typeof(ProfileValueReference).GetField("m_Id", BindingFlags.Instance | BindingFlags.NonPublic);
 
         [SerializeField]
-        private readonly string directory;
+        private string directory;
         [SerializeField]
-        private readonly string groupsDirectory;
+        private string groupsDirectory;
         [SerializeField]
-        private readonly List<SerializableAssetRequest> assetRequests;
+        private List<SerializableAssetRequest> assetRequests;
 
         public VirtualAddressableAssetCollection(string directory, string groupsDirectory)
         {
