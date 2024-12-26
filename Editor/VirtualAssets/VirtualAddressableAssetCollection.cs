@@ -9,6 +9,7 @@ using UnityEngine.ResourceManagement.ResourceProviders;
 using System.Linq;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings.GroupSchemas;
+using Object = UnityEngine.Object;
 
 namespace AssetsOfRain.Editor.VirtualAssets
 {
@@ -35,7 +36,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
             return Path.Combine(virtualAssetDirectory, assetRequest.assemblyQualifiedTypeName, virtualAssetFileName);
         }
 
-        public void ImportVirtualAsset(SerializableAssetRequest assetRequest, out string virtualAssetPath)
+        public void ImportVirtualAsset(SerializableAssetRequest assetRequest)
         {
             Debug.Log($"ImportVirtualAsset: {assetRequest.primaryKey}");
 
@@ -44,7 +45,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 assetRequests.Add(assetRequest);
             }
 
-            virtualAssetPath = GetVirtualAssetPath(assetRequest);
+            string virtualAssetPath = GetVirtualAssetPath(assetRequest);
             if (!File.Exists(virtualAssetPath))
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(virtualAssetPath));
@@ -114,8 +115,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 }
                 SerializableAssetRequest newAssetRequest = new SerializableAssetRequest
                 {
-                    primaryKey = assetLocation.PrimaryKey,
-                    AssetType = assetLocation.ResourceType,
+                    AssetLocation = assetLocation,
                 };
                 if (assetRequests.Contains(newAssetRequest))
                 {
@@ -125,10 +125,25 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 string newVirtualAssetPath = GetVirtualAssetPath(newAssetRequest);
                 AssetDatabase.MoveAsset(oldVirtualAssetPath, newVirtualAssetPath);
                 DeleteVirtualAsset(assetRequest);
-                ImportVirtualAsset(newAssetRequest, out _);
+                ImportVirtualAsset(newAssetRequest);
                 return true;
             }
             return false;
+        }
+
+        public Object GetVirtualAsset(SerializableAssetRequest assetRequest)
+        {
+            return AssetDatabase.LoadAssetAtPath(GetVirtualAssetPath(assetRequest), assetRequest.AssetType);
+        }
+
+        public bool VirtualAssetExists(SerializableAssetRequest assetRequest)
+        {
+            return GetVirtualAsset(assetRequest) != null;
+        }
+
+        public bool ContainsVirtualAsset(SerializableAssetRequest assetRequest)
+        {
+            return assetRequests.Contains(assetRequest);
         }
     }
 }

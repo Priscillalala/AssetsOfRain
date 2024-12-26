@@ -87,8 +87,7 @@ namespace AssetsOfRain.Editor
 
             var newShaderRequests = validShaderLocations.Select(x => new SerializableAssetRequest
             {
-                primaryKey = x.PrimaryKey,
-                AssetType = typeof(Shader),
+                AssetLocation = x,
             }).ToList();
 
             foreach (var previousShaderRequest in previousShaderRequests)
@@ -101,7 +100,7 @@ namespace AssetsOfRain.Editor
 
             foreach (var newShaderRequest in newShaderRequests)
             {
-                virtualShaders.ImportVirtualAsset(newShaderRequest, out _);
+                virtualShaders.ImportVirtualAsset(newShaderRequest);
             }
 
             EditorUtility.SetDirty(this);
@@ -116,9 +115,8 @@ namespace AssetsOfRain.Editor
             var assetRequests = virtualAssets.GetAssetRequests();
             foreach (var assetRequest in assetRequests)
             {
-                virtualAssets.ImportVirtualAsset(assetRequest, out string virtualAssetPath);
-                Type assetType = AssetDatabase.GetMainAssetTypeAtPath(virtualAssetPath);
-                if (assetType == null || assetType != assetRequest.AssetType)
+                virtualAssets.ImportVirtualAsset(assetRequest);
+                if (!virtualAssets.VirtualAssetExists(assetRequest))
                 {
                     var allowedAssetLocations = Addressables.ResourceLocators.SelectMany(x => x.AllLocationsOfType(assetRequest.AssetType));
                     if (!virtualAssets.TryMoveVirtualAsset(assetRequest, allowedAssetLocations))

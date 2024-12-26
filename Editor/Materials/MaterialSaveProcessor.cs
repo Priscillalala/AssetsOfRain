@@ -39,14 +39,14 @@ namespace AssetsOfRain.Editor.Materials
                 {
                     continue;
                 }
-                Debug.Log($"OnWillSaveAssets Set material {material.name} to use {importer.primaryKey}");
+                Debug.Log($"OnWillSaveAssets Set material {material.name} to use {importer.request.primaryKey}");
+                Shader shader = material.shader;
                 material.shader = serializedShader;
-                string primaryKey = importer.primaryKey;
                 EditorApplication.delayCall += delegate
                 {
-                    if (material)
+                    if (material && shader)
                     {
-                        material.shader = Addressables.LoadAssetAsync<Shader>(primaryKey).WaitForCompletion();
+                        material.shader = shader;
                         Debug.Log($"OnWillSaveAssets Set material {material.name} to use working shader again");
                     }
                 };

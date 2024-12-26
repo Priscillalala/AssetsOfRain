@@ -71,7 +71,7 @@ namespace AssetsOfRain.Editor.Materials
                 {
                     continue;
                 }
-                Shader shader = Addressables.LoadAssetAsync<Shader>(importer.primaryKey).WaitForCompletion();
+                Shader shader = Addressables.LoadAssetAsync<Shader>(importer.request.AssetLocation).WaitForCompletion();
                 foreach (Material material in materialsWithShaderGroup)
                 {
                     Debug.Log($"OnPostprocessAllAssets set {material.name} shader");
@@ -92,9 +92,9 @@ namespace AssetsOfRain.Editor.Materials
             {
                 return;
             }
-            Debug.Log($"Setting material {material.name} to use shader {importer.primaryKey} temporarily");
+            Debug.Log($"Setting material {material.name} to use shader {importer.request.primaryKey} temporarily");
             AssetDatabase.SaveAssetIfDirty(material);
-            material.shader = Addressables.LoadAssetAsync<Shader>(importer.primaryKey).WaitForCompletion();
+            material.shader = Addressables.LoadAssetAsync<Shader>(importer.request.AssetLocation).WaitForCompletion();
         }
     }
 }

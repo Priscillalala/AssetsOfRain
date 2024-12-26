@@ -19,9 +19,9 @@ using UnityEditor.Experimental.SceneManagement;
 using UnityEngine.Rendering;
 using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
-using static ThunderKit.Core.UIElements.TemplateHelpers;
 using ThunderKit.Addressable.Tools;
 using AddressableBrowserPlus = AssetsOfRain.Editor.Browser.AddressableBrowser;
+using AssetsOfRain.Editor.VirtualAssets;
 
 namespace AssetsOfRain.Editor.Browser
 {
@@ -30,6 +30,10 @@ namespace AssetsOfRain.Editor.Browser
         private static readonly FieldInfo directoryContentField = typeof(ThunderKit.Addressable.Tools.AddressableBrowser).GetField("directoryContent", BindingFlags.Instance | BindingFlags.NonPublic);
 
         public override string Title => "Addressable Browser+";
+
+        const string ADDRESSABLE_ASSET = "addressable-asset";
+        const string BUTTON_PANEL = "addressable-button-panel";
+        const string MANAGE_ASSET_BUTTON = "addressable-manage-asset-button";
 
         public override void OnEnable()
         {
@@ -58,39 +62,78 @@ namespace AssetsOfRain.Editor.Browser
         public void ModifyAsset(VisualElement element, int i)
         {
             ListView directoryContent = GetDirectoryContent();
-            var location = (IResourceLocation)directoryContent.itemsSource[i];
-            string virtualAssetPath = AssetsOfRainManager.GetVirtualAssetPath(location.PrimaryKey);
-            bool assetInProject = AssetDatabase.GetMainAssetTypeAtPath(virtualAssetPath) == location.ResourceType;
+            var assetLocation = (IResourceLocation)directoryContent.itemsSource[i];
+            if (typeof(Shader).IsAssignableFrom(assetLocation.ResourceType) || typeof(SceneInstance).IsAssignableFrom(assetLocation.ResourceType))
+            {
+                return;
+            }
+            SerializableAssetRequest assetRequest = new SerializableAssetRequest { AssetLocation = assetLocation };
+            bool assetAlreadyRequested = false;
+            bool assetAlreadyExists = false;
+            if (AssetsOfRainManager.TryGetInstance(out var manager))
+            {
+                assetAlreadyRequested = manager.virtualAssets.ContainsVirtualAsset(assetRequest);
+                assetAlreadyExists = manager.virtualAssets.VirtualAssetExists(assetRequest);
+            }
 
-            VisualElement buttonPanel = element.Q("addressable-button-panel");
+            VisualElement buttonPanel = element.Q(BUTTON_PANEL);
 
-            Button manageAssetButton = buttonPanel.Q<Button>("addressable-manage-asset-button");
+            Button manageAssetButton = buttonPanel.Q<Button>(MANAGE_ASSET_BUTTON);
             if (manageAssetButton == null)
             {
                 manageAssetButton = new Button
                 {
-                    name = "addressable-manage-asset-button",
+                    name = MANAGE_ASSET_BUTTON,
                 };
                 buttonPanel.Add(manageAssetButton);
             }
-            if (assetInProject)
+
+            if (assetAlreadyExists)
             {
+                manageAssetButton.style.display = DisplayStyle.Flex;
+                manageAssetButton.text = "Remove";
+                manageAssetButton.tooltip = "Remove this addressable asset from the project";
+                manageAssetButton.clickable = new Clickable(delegate ()
+                {
+                    var manager = AssetsOfRainManager.GetInstance();
+                    manager.virtualAssets.DeleteVirtualAsset(assetRequest);
+                    EditorUtility.SetDirty(manager);
+                });
+            }
+            else if (!assetAlreadyRequested)
+            {
+                manageAssetButton.style.display = DisplayStyle.Flex;
                 manageAssetButton.text = "Import";
                 manageAssetButton.tooltip = "Add this addressable asset to the project";
+                manageAssetButton.clickable = new Clickable(delegate ()
+                {
+                    var manager = AssetsOfRainManager.GetInstance();
+                    manager.virtualAssets.ImportVirtualAsset(assetRequest);
+                    EditorUtility.SetDirty(manager);
+                });
             }
-            VisualElement assetPanel = element.Q("addressable-asset");
+            else
+            {
+                manageAssetButton.style.display = DisplayStyle.None;
+                manageAssetButton.clickable = null;
+            }
+
+            VisualElement assetPanel = element.Q(ADDRESSABLE_ASSET);
             assetPanel.RegisterCallback<PointerDownEvent>(OnPointerDown);
 
             void OnPointerDown(PointerDownEvent evt) 
             {
-                DragAndDrop.PrepareStartDrag();
-
-                // Store reference to object and path to object in DragAndDrop static fields.
-                //DragAndDrop.objectReferences = new[] { CreateInstance<ItemDef>() };
-                DragAndDrop.paths = Array.Empty<string>();
-
-                // Start a drag.
-                DragAndDrop.StartDrag(string.Empty);
+                if (AssetsOfRainManager.TryGetInstance(out var manager))
+                {
+                    var virtualAsset = manager.virtualAssets.GetVirtualAsset(assetRequest);
+                    if (virtualAsset != null)
+                    {
+                        DragAndDrop.PrepareStartDrag();
+                        DragAndDrop.objectReferences = new[] { virtualAsset };
+                        DragAndDrop.paths = new[] { AssetDatabase.GetAssetPath(virtualAsset) };
+                        DragAndDrop.StartDrag(assetRequest.primaryKey);
+                    }
+                }
             }
         }
 

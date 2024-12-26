@@ -10,11 +10,13 @@ namespace AssetsOfRain.Editor
         public const string MENU_ROOT = "Tools/Assets of Rain/";
         public const string NAME = "Assets of Rain";
 
+#if TK_ADDRESSABLE
         [MenuItem(MENU_ROOT + "Addressable Browser+")]
         public static void AddressableBrowserPlus()
         {
             EditorWindow.GetWindow<AddressableBrowserPlus>();
         }
+#endif
 
         [MenuItem(MENU_ROOT + "Refresh Addressable Shaders")]
         public static void RefreshAddressableShaders()
