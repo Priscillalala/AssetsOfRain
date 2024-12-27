@@ -55,7 +55,7 @@ namespace AssetsOfRain.Editor.Materials
             }
             if (didDomainReload)
             {
-                //EditorApplication.delayCall += UpdateAfterDomainReload;
+                EditorApplication.delayCall += UpdateAfterDomainReload;
             }
         }
 

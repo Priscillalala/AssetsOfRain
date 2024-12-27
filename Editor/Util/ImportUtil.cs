@@ -25,7 +25,7 @@ namespace AssetsOfRain.Editor.Util
             return monoScript ? monoScript.GetInstanceID() : 0;
         }
 
-        public static void SetScriptReference(Object asset, int scriptInstanceID)
+        public static void SetScriptReference(Object asset, MonoScript monoScript)
         {
             const string SCRIPT_PROPERTY = "m_Script";
 
@@ -33,7 +33,8 @@ namespace AssetsOfRain.Editor.Util
             var scriptProperty = serializedAsset.FindProperty(SCRIPT_PROPERTY);
             if (scriptProperty != null)
             {
-                scriptProperty.objectReferenceInstanceIDValue = scriptInstanceID;
+                scriptProperty.objectReferenceInstanceIDValue = monoScript.GetInstanceID();
+                scriptProperty.objectReferenceValue = monoScript;
                 serializedAsset.ApplyModifiedProperties();
             }
         }
