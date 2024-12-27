@@ -22,18 +22,34 @@ using Object = UnityEngine.Object;
 using ThunderKit.Addressable.Tools;
 using AddressableBrowserPlus = AssetsOfRain.Editor.Browser.AddressableBrowser;
 using AssetsOfRain.Editor.VirtualAssets;
+using UnityEditor.UIElements;
 
 namespace AssetsOfRain.Editor.Browser
 {
     public class AddressableBrowser : ThunderKit.Addressable.Tools.AddressableBrowser
     {
-        private static readonly FieldInfo directoryContentField = typeof(ThunderKit.Addressable.Tools.AddressableBrowser).GetField("directoryContent", BindingFlags.Instance | BindingFlags.NonPublic);
+        [Flags]
+        public enum BrowserOptionsExtended
+        {
+            None = 0x0,
+            ShowType = 0x1,
+            ShowProvider = 0x2,
+            IgnoreCase = 0x4,
+            UseRegex = 0x8,
+            OnlyImportedAssets = 0x16,
+        }
 
+        private static readonly FieldInfo directoryContentField = typeof(ThunderKit.Addressable.Tools.AddressableBrowser).GetField("directoryContent", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly MethodInfo DirectoryContent_onSelectionChanged = typeof(ThunderKit.Addressable.Tools.AddressableBrowser).GetMethod("DirectoryContent_onSelectionChanged", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly FieldInfo m_CallbackRegistry = typeof(CallbackEventHandler).GetField("m_CallbackRegistry", BindingFlags.Instance | BindingFlags.NonPublic);
         public override string Title => "Addressable Browser+";
 
         const string ADDRESSABLE_ASSET = "addressable-asset";
         const string BUTTON_PANEL = "addressable-button-panel";
         const string MANAGE_ASSET_BUTTON = "addressable-manage-asset-button";
+        const string DISPLAY_OPTIONS = "display-options";
+
+        public BrowserOptionsExtended browserOptionsExtended;
 
         public override void OnEnable()
         {
@@ -57,6 +73,18 @@ namespace AssetsOfRain.Editor.Browser
             Debug.Log("Modify browser");
             ListView directoryContent = GetDirectoryContent();
             directoryContent.bindItem = (Action<VisualElement, int>)Delegate.Combine(directoryContent.bindItem, new Action<VisualElement, int>(ModifyAsset));
+            var onSelectionChanged = (Action<IEnumerable<object>>)Delegate.CreateDelegate(typeof(Action<IEnumerable<object>>), this, DirectoryContent_onSelectionChanged);
+            directoryContent.onSelectionChange -= onSelectionChanged;
+            directoryContent.onItemsChosen += onSelectionChanged;
+
+            /*var displayOptionsField = rootVisualElement.Q<EnumFlagsField>(DISPLAY_OPTIONS);
+            displayOptionsField.Unbind();
+            displayOptionsField.style.color = Color.red;
+            Debug.Log(displayOptionsField.bindingPath);
+            displayOptionsField.bindingPath = nameof(browserOptionsExtended);
+            Debug.Log(displayOptionsField.bindingPath);
+            displayOptionsField.BindProperty(new SerializedObject(this).FindProperty(nameof(browserOptionsExtended)));
+            displayOptionsField.Init(BrowserOptionsExtended.OnlyImportedAssets);*/
         }
 
         public void ModifyAsset(VisualElement element, int i)
@@ -91,6 +119,7 @@ namespace AssetsOfRain.Editor.Browser
             if (assetAlreadyExists)
             {
                 manageAssetButton.style.display = DisplayStyle.Flex;
+                manageAssetButton.style.backgroundColor = new StyleColor(new Color32(181, 56, 81, 255));
                 manageAssetButton.text = "Remove";
                 manageAssetButton.tooltip = "Remove this addressable asset from the project";
                 manageAssetButton.clickable = new Clickable(delegate ()
@@ -98,11 +127,13 @@ namespace AssetsOfRain.Editor.Browser
                     var manager = AssetsOfRainManager.GetInstance();
                     manager.virtualAssets.DeleteVirtualAsset(assetRequest);
                     EditorUtility.SetDirty(manager);
+                    directoryContent?.RefreshItems();
                 });
             }
             else if (!assetAlreadyRequested)
             {
                 manageAssetButton.style.display = DisplayStyle.Flex;
+                manageAssetButton.style.backgroundColor = new StyleColor(new Color32(67, 141, 168, 255));
                 manageAssetButton.text = "Import";
                 manageAssetButton.tooltip = "Add this addressable asset to the project";
                 manageAssetButton.clickable = new Clickable(delegate ()
@@ -110,6 +141,7 @@ namespace AssetsOfRain.Editor.Browser
                     var manager = AssetsOfRainManager.GetInstance();
                     manager.virtualAssets.ImportVirtualAsset(assetRequest);
                     EditorUtility.SetDirty(manager);
+                    directoryContent?.RefreshItems();
                 });
             }
             else
@@ -119,6 +151,7 @@ namespace AssetsOfRain.Editor.Browser
             }
 
             VisualElement assetPanel = element.Q(ADDRESSABLE_ASSET);
+            m_CallbackRegistry.SetValue(assetPanel, null);
             assetPanel.RegisterCallback<PointerDownEvent>(OnPointerDown);
 
             void OnPointerDown(PointerDownEvent evt) 
