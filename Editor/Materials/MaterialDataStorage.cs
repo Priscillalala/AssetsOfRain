@@ -13,16 +13,6 @@ namespace AssetsOfRain.Editor.Materials
         [SerializeField]
         private List<Shader> serializedPersistentShaders = new List<Shader>();
 
-        public void OnEnable()
-        {
-            
-        }
-
-        public void OnDisable()
-        {
-            
-        }
-
         public void OnBeforeSerialize()
         {
             serializedMaterialIds.Clear();

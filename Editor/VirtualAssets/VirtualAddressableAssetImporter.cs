@@ -131,11 +131,17 @@ namespace AssetsOfRain.Editor.VirtualAssets
                         asset = Instantiate(asset);
                     }
                     break;
-                case ScriptableObject:
-                    asset = Instantiate(asset);
+                case ScriptableObject scriptableAsset:
+                    asset = ScriptableObject.CreateInstance(scriptableAsset.GetType());
+                    EditorUtility.CopySerialized(scriptableAsset, asset);
+                    /*asset = Instantiate(asset);
+                    asset.hideFlags |= HideFlags.HideAndDontSave;
+                    Debug.Log($"ScriptableObject: {asset}");
                     var tempAsset = ScriptableObject.CreateInstance(asset.GetType());
+                    Debug.Log($"ScriptableObject now: {asset}");
                     ImportUtil.SetScriptReference(asset, MonoScript.FromScriptableObject(tempAsset).GetInstanceID());
-                    DestroyImmediate(tempAsset);
+                    Debug.Log($"ScriptableObject later: {asset}");
+                    DestroyImmediate(tempAsset);*/
                     break;
                 case GameObject:
                     asset = Instantiate(asset);
@@ -168,7 +174,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
 
             Debug.LogWarning($"Created new asset representation for asset {name}");
             asset.name = name;
-            asset.hideFlags = HideFlags.NotEditable | HideFlags.DontSave | HideFlags.HideInHierarchy;
+            asset.hideFlags = HideFlags.NotEditable | HideFlags.HideInHierarchy| HideFlags.DontSave;
 
             return asset;
         }

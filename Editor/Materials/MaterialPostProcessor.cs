@@ -53,24 +53,26 @@ namespace AssetsOfRain.Editor.Materials
                 Debug.Log($"OnPostprocessAllAssets: imported material {material.name}");
                 OnMaterialPropertiesChanged(material, true);
             }
-            if (!didDomainReload)
+            if (didDomainReload)
             {
-                return;
+                //EditorApplication.delayCall += UpdateAfterDomainReload;
             }
-            EditorApplication.delayCall += UpdateAfterDomainReload;
         }
 
         public static void UpdateAfterDomainReload()
         {
             Debug.Log("OnPostprocessAllAssets: reloading shaders");
 
-            static string GetShaderAssetPath(Material material)
+            static string ResolvePersistentShaderPath(Material material)
             {
+                bool validShader = material.shader && material.shader.isSupported;
+                int instanceId = material.GetInstanceID();
                 if (material.shader && material.shader.isSupported)
                 {
+                    MaterialDataStorage.instance.materialToPersistentShader[instanceId] = material.shader;
                     return AssetDatabase.GetAssetPath(material.shader);
                 }
-                if (MaterialDataStorage.instance.materialToPersistentShader.TryGetValue(material.GetInstanceID(), out Shader persistentShader))
+                else if (MaterialDataStorage.instance.materialToPersistentShader.TryGetValue(instanceId, out Shader persistentShader))
                 {
                     Debug.LogWarning($"Found persistent shader for {material.name}: shader is {persistentShader.name}");
                     return AssetDatabase.GetAssetPath(persistentShader);
@@ -83,20 +85,13 @@ namespace AssetsOfRain.Editor.Materials
                 .Distinct()
                 .SelectMany(AssetDatabase.LoadAllAssetsAtPath)
                 .OfType<Material>()
-                .GroupBy(GetShaderAssetPath);
+                .GroupBy(ResolvePersistentShaderPath);
             foreach (var materialsWithShaderGroup in allMaterialsByShader)
             {
                 if (string.IsNullOrEmpty(materialsWithShaderGroup.Key) || AssetImporter.GetAtPath(materialsWithShaderGroup.Key) is not VirtualAddressableAssetImporter importer || !typeof(Shader).IsAssignableFrom(importer.request.AssetType))
                 {
                     continue;
                 }
-                /*Shader shader = Addressables.LoadAssetAsync<Shader>(importer.request.AssetLocation).WaitForCompletion();
-                foreach (Material material in materialsWithShaderGroup)
-                {
-                    Debug.Log($"OnPostprocessAllAssets set {material.name} shader");
-                    MaterialDataStorage.instance.materialToPersistentShader[material.GetInstanceID()] = AssetDatabase.LoadAssetAtPath<Shader>(materialsWithShaderGroup.Key);
-                    material.shader = shader;
-                }*/
                 var loadShaderOp = Addressables.LoadAssetAsync<Shader>(importer.request.AssetLocation);
                 loadShaderOp.Completed += handle =>
                 {
@@ -106,15 +101,11 @@ namespace AssetsOfRain.Editor.Materials
                         if (material)
                         {
                             Debug.Log($"OnPostprocessAllAssets set {material.name} shader");
-                            MaterialDataStorage.instance.materialToPersistentShader[material.GetInstanceID()] = AssetDatabase.LoadAssetAtPath<Shader>(materialsWithShaderGroup.Key);
+                            //MaterialDataStorage.instance.materialToPersistentShader[material.GetInstanceID()] = AssetDatabase.LoadAssetAtPath<Shader>(materialsWithShaderGroup.Key);
                             material.shader = shader;
                         }
                     }
                 };
-                /*EditorApplication.delayCall += delegate
-                {
-                    
-                };*/
             }
         }
 

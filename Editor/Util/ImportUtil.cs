@@ -34,8 +34,8 @@ namespace AssetsOfRain.Editor.Util
             if (scriptProperty != null)
             {
                 scriptProperty.objectReferenceInstanceIDValue = scriptInstanceID;
+                serializedAsset.ApplyModifiedProperties();
             }
-            serializedAsset.ApplyModifiedProperties();
         }
 
         public static Texture2D DuplicateCompressedTexture(Texture2D srcTex)
