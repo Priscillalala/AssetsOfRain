@@ -63,8 +63,6 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 return;
             }
             importer.request = assetRequest;
-            //importer.primaryKey = assetRequest.primaryKey;
-            //importer.assemblyQualifiedTypeName = assetRequest.assemblyQualifiedTypeName;
             EditorUtility.SetDirty(importer);
             importer.SaveAndReimport();
 

@@ -75,7 +75,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
             else
             {
                 AssetDatabase.TryGetGUIDAndLocalFileIdentifier(asset, out _, out long localId);
-                Object assetRepresentation = GetAssetRepresentation(asset, localId, ctx, out bool newRepresentation, out bool recurseDependencies);
+                Object assetRepresentation = GetAssetRepresentation(asset, ctx, out bool newRepresentation, out bool recurseDependencies);
                 assetRepresentations[assetInstanceId] = assetRepresentation;
                 assetRepresentations[assetRepresentation.GetInstanceID()] = assetRepresentation;
                 if (!newRepresentation)
@@ -120,7 +120,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
             return asset;
         }
 
-        public static Object GetAssetRepresentation(Object asset, long identifier, AssetImportContext ctx, out bool newRepresentation, out bool recurseDependencies)
+        public static Object GetAssetRepresentation(Object asset, AssetImportContext ctx, out bool newRepresentation, out bool recurseDependencies)
         {
             string name = asset.name;
             newRepresentation = true;
@@ -149,13 +149,15 @@ namespace AssetsOfRain.Editor.VirtualAssets
                     break;
                 case GameObject:
                     asset = Instantiate(asset);
+                    asset.hideFlags |= HideFlags.DontSave;
                     GameObject prefabAsset = (GameObject)asset;
                     var componentGroups = prefabAsset.GetComponentsInChildren<MonoBehaviour>(true).GroupBy(x => x.GetType());
-                    var tempPrefabAsset = new GameObject();
+                    var tempPrefabAsset = EditorUtility.CreateGameObjectWithHideFlags(name, HideFlags.HideAndDontSave);
                     tempPrefabAsset.SetActive(false);
                     foreach (var componentGroup in componentGroups)
                     {
                         int scriptInstanceId = MonoScript.FromMonoBehaviour((MonoBehaviour)tempPrefabAsset.AddComponent(componentGroup.Key)).GetInstanceID();
+                        //int scriptInstanceId = ImportUtil.FindScriptInstanceID(componentGroup.Key);
                         foreach (var component in componentGroup)
                         {
                             SetScriptReference(component, scriptInstanceId);
@@ -196,7 +198,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
 
             Debug.LogWarning($"Created new asset representation for asset {name}");
             asset.name = name;
-            asset.hideFlags = HideFlags.NotEditable;
+            asset.hideFlags = HideFlags.HideAndDontSave;
 
             return asset;
 

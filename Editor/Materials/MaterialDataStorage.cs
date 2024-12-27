@@ -26,8 +26,8 @@ namespace AssetsOfRain.Editor.Materials
         public void OnBeforeSerialize()
         {
             serializedMaterialIds.Clear();
-            serializedPersistentShaders.Clear();
             serializedMaterialIds.AddRange(materialToPersistentShader.Keys);
+            serializedPersistentShaders.Clear();
             serializedPersistentShaders.AddRange(materialToPersistentShader.Values);
         }
 
