@@ -78,7 +78,7 @@ namespace AssetsOfRain.Editor.Materials
                 return null;
             }
 
-            var allMaterialsByShader = AssetDatabase.FindAssets($"t:{nameof(Material)}")
+            var allMaterialsByShader = AssetDatabase.FindAssets($"glob:\"(*.mat|*.{VirtualAddressableAssetImporter.EXTENSION})\" a:assets")//($"t:{nameof(Material)}")
                 .Select(AssetDatabase.GUIDToAssetPath)
                 .Distinct()
                 .SelectMany(AssetDatabase.LoadAllAssetsAtPath)

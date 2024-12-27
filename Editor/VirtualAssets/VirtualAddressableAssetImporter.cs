@@ -24,9 +24,6 @@ namespace AssetsOfRain.Editor.VirtualAssets
 
         public SerializableAssetRequest request;
 
-        //public string primaryKey;
-        //public string assemblyQualifiedTypeName;
-
         [Serializable]
         public struct Result
         {
@@ -38,14 +35,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
 
         public override void OnImportAsset(AssetImportContext ctx)
         {
-            /*if (string.IsNullOrEmpty(primaryKey))
-            {
-                return;
-            }
-
-            Type assetType = Type.GetType(assemblyQualifiedTypeName);*/
-
-            IResourceLocation assetLocation = request.AssetLocation;//Addressables.LoadResourceLocationsAsync(primaryKey, assetType).WaitForCompletion().FirstOrDefault();
+            IResourceLocation assetLocation = request.AssetLocation;
             if (assetLocation == null)
             {
                 return;
@@ -144,7 +134,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 case ScriptableObject:
                     asset = Instantiate(asset);
                     var tempAsset = ScriptableObject.CreateInstance(asset.GetType());
-                    SetScriptReference(asset, MonoScript.FromScriptableObject(tempAsset).GetInstanceID());
+                    ImportUtil.SetScriptReference(asset, MonoScript.FromScriptableObject(tempAsset).GetInstanceID());
                     DestroyImmediate(tempAsset);
                     break;
                 case GameObject:
@@ -160,33 +150,13 @@ namespace AssetsOfRain.Editor.VirtualAssets
                         //int scriptInstanceId = ImportUtil.FindScriptInstanceID(componentGroup.Key);
                         foreach (var component in componentGroup)
                         {
-                            SetScriptReference(component, scriptInstanceId);
+                            ImportUtil.SetScriptReference(component, scriptInstanceId);
                         }
                     }
                     DestroyImmediate(tempPrefabAsset);
                     break;
                 case Texture2D texAsset:
-                    static Texture2D DuplicateTexture(Texture2D srcTex)
-                    {
-                        RenderTexture renderTex = RenderTexture.GetTemporary(
-                                    srcTex.width,
-                                    srcTex.height,
-                                    0,
-                                    RenderTextureFormat.Default,
-                                    RenderTextureReadWrite.Default);
-
-                        RenderTexture previous = RenderTexture.active;
-                        Graphics.Blit(srcTex, renderTex);
-                        RenderTexture.active = renderTex;
-                        Texture2D outputTex = new Texture2D(srcTex.width, srcTex.height);
-                        outputTex.ReadPixels(new Rect(0, 0, renderTex.width, renderTex.height), 0, 0);
-                        outputTex.Apply(false, true);
-                        RenderTexture.active = previous;
-                        RenderTexture.ReleaseTemporary(renderTex);
-                        outputTex.alphaIsTransparency = srcTex.alphaIsTransparency;
-                        return outputTex;
-                    }
-                    asset = DuplicateTexture(texAsset);
+                    asset = ImportUtil.DuplicateCompressedTexture(texAsset);
                     break;
                 case Material matAsset:
                     asset = new Material(matAsset);
@@ -198,21 +168,9 @@ namespace AssetsOfRain.Editor.VirtualAssets
 
             Debug.LogWarning($"Created new asset representation for asset {name}");
             asset.name = name;
-            asset.hideFlags = HideFlags.HideAndDontSave;
+            asset.hideFlags = HideFlags.NotEditable | HideFlags.DontSave | HideFlags.HideInHierarchy;
 
             return asset;
-
-            static void SetScriptReference(Object asset, int scriptInstanceId)
-            {
-                const string SCRIPT_PROPERTY = "m_Script";
-
-                using SerializedObject serializedAsset = new SerializedObject(asset);
-                var script = serializedAsset.FindProperty(SCRIPT_PROPERTY);
-                //Debug.Log($"Script value: {script.objectReferenceInstanceIDValue}");
-                script.objectReferenceInstanceIDValue = scriptInstanceId;
-                serializedAsset.ApplyModifiedProperties();
-                //Debug.Log($"Script value (new): {script.objectReferenceInstanceIDValue}");
-            }
         }
     }
 }
