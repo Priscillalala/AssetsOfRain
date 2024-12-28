@@ -129,14 +129,11 @@ namespace AssetsOfRain.Editor
             EditorUtility.SetDirty(this);
         }
 
-        public void RebuildVirtualAssets()
+        public void DeleteVirtualAssets()
         {
-            Debug.Log("REBUILDING all assets..");
+            AssetDatabase.DeleteAsset(GROUPS_DIRECTORY);
             AssetDatabase.DeleteAsset(VIRTUAL_ASSETS_DIRECTORY);
             AssetDatabase.DeleteAsset(VIRTUAL_SHADERS_DIRECTORY);
-            RefreshVirtualAssets();
-
-            EditorUtility.SetDirty(this);
         }
     }
 }

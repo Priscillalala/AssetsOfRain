@@ -35,7 +35,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
 
         public List<SerializableAssetRequest> GetAssetRequests() => new List<SerializableAssetRequest>(assetRequests);
 
-        private string GetVirtualAssetPath(SerializableAssetRequest assetRequest)
+        public string GetVirtualAssetPath(SerializableAssetRequest assetRequest)
         {
             string virtualAssetDirectory = Path.Combine(directory, Path.GetDirectoryName(assetRequest.primaryKey));
             string virtualAssetFileName = Path.ChangeExtension(Path.GetFileName(assetRequest.primaryKey), VirtualAddressableAssetImporter.EXTENSION);

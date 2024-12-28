@@ -147,6 +147,25 @@ namespace AssetsOfRain.Editor.Browser
                     manageAssetButton.clickable = new Clickable(delegate ()
                     {
                         var manager = AssetsOfRainManager.GetInstance();
+                        var virtualAssetPath = AssetDatabase.GetAssetPath(manager.virtualAssets.GetVirtualAsset(assetRequest));
+                        if (!string.IsNullOrEmpty(virtualAssetPath))
+                        {
+                            List<string> dependentAssets = AssetDatabase.GetAllAssetPaths()
+                            .Where(x => Array.IndexOf(AssetDatabase.GetDependencies(x), virtualAssetPath) >= 0)
+                            .ToList();
+                            dependentAssets.Remove(virtualAssetPath);
+                            if (dependentAssets.Count > 0)
+                            {
+                                string message = $@"The following assets will be left with missing references:
+
+{string.Join('\n', dependentAssets)}";
+
+                                if (!EditorUtility.DisplayDialog("Remove addressable asset?", message, "Remove", "Cancel"))
+                                {
+                                    return;
+                                }
+                            }
+                        }
                         manager.virtualAssets.DeleteVirtualAsset(assetRequest);
                         EditorUtility.SetDirty(manager);
                         directoryContent?.RefreshItems();
