@@ -150,8 +150,9 @@ namespace AssetsOfRain.Editor.Browser
                         var virtualAssetPath = AssetDatabase.GetAssetPath(manager.virtualAssets.GetVirtualAsset(assetRequest));
                         if (!string.IsNullOrEmpty(virtualAssetPath))
                         {
+                            AssetDatabase.SaveAssets();
                             List<string> dependentAssets = AssetDatabase.GetAllAssetPaths()
-                            .Where(x => Array.IndexOf(AssetDatabase.GetDependencies(x), virtualAssetPath) >= 0)
+                            .Where(x => Array.IndexOf(AssetDatabase.GetDependencies(x, false), virtualAssetPath) >= 0)
                             .ToList();
                             dependentAssets.Remove(virtualAssetPath);
                             if (dependentAssets.Count > 0)
