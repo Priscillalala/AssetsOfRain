@@ -41,24 +41,12 @@ namespace AssetsOfRain.Editor.Building
                 Addressables.profileSettings.SetValue(Addressables.activeProfileId, Addressables.RemoteCatalogBuildPath.GetName(Addressables), resolvedArtifactPath);
                 Addressables.profileSettings.SetValue(Addressables.activeProfileId, Addressables.RemoteCatalogLoadPath.GetName(Addressables), resolvedLoadPath);
                 Addressables.OverridePlayerVersion = pipeline.Manifest.Identity.Name;
-                Addressables.ActivePlayerDataBuilderIndex = Addressables.DataBuilders.FindIndex(s => s.GetType() == typeof(BuildScriptMod));
-                BuildScriptMod.pipeline = pipeline;
-
-                /*pipeline.Log(LogLevel.Information, "I. B. Addressables groups:");
-                foreach (string importedBundleGuid in AssetDatabase.FindAssets($"t:{nameof(ImportedBundle)}"))
+                if (!Addressables.DataBuilders.OfType<BuildScriptMod>().Any())
                 {
-                    AddressableAssetEntry entry = Addressables.FindAssetEntry(importedBundleGuid);
-                    if (entry == null)
-                    {
-                        continue;
-                    }
-                    pipeline.Log(LogLevel.Information, entry.address);
-                    pipeline.Log(LogLevel.Information, entry.parentGroup.Name);
-                    pipeline.Log(LogLevel.Information, $"GUID: {entry.parentGroup.Guid}");
-                    string importedBundlePath = AssetDatabase.GUIDToAssetPath(importedBundleGuid);
-                    string assetBundleName = AssetDatabase.LoadAssetAtPath<ImportedBundle>(importedBundlePath).assetBundleName;
-                    m_GUID.SetValue(entry.parentGroup, Path.GetFileNameWithoutExtension(assetBundleName));
-                }*/
+                    Addressables.AddDataBuilder(AssetDatabase.LoadAssetAtPath<BuildScriptMod>(AssetsOfRain.PACKAGE_ASSETS_DIRECTORY + "/BuildScriptMod.asset"));
+                }
+                Addressables.ActivePlayerDataBuilderIndex = Addressables.DataBuilders.FindIndex(s => s is BuildScriptMod);
+                BuildScriptMod.pipeline = pipeline;
 
                 //Addressables.ActivePlayerDataBuilderIndex = Addressables.DataBuilders.FindIndex(s => s.GetType() == typeof(BuildScriptRoR2));
                 //((BuildScriptRoR2)Addressables.ActivePlayerDataBuilder).SetAssetTypeLabels(definition.assetTypeLabels, definition.componentTypeLabels);

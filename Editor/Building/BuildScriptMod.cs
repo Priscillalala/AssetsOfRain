@@ -9,8 +9,11 @@ using UnityEditor.AddressableAssets.Build;
 using UnityEditor.AddressableAssets.Build.DataBuilders;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.Build.Content;
+using UnityEditor.Build.Pipeline;
+using UnityEditor.Build.Pipeline.Interfaces;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using LogLevel = ThunderKit.Core.Pipelines.LogLevel;
 
 namespace AssetsOfRain.Editor.Building
 {
@@ -59,7 +62,7 @@ namespace AssetsOfRain.Editor.Building
             List<AssetBundleBuild> allBundleInputDefs = (List<AssetBundleBuild>)m_AllBundleInputDefs.GetValue(this);
             if (allBundleInputDefs != null && allBundleInputDefs.Count > 0) 
             {
-                foreach (var bundleToAssetGroupPair in aaContext.bundleToAssetGroup)
+                foreach (var bundleToAssetGroupPair in aaContext.bundleToAssetGroup.ToArray())
                 {
                     if (aaContext.Settings.FindGroup(x => x.Guid == bundleToAssetGroupPair.Value) is not VirtualAddressableAssetGroup group)
                     {
@@ -122,7 +125,7 @@ namespace AssetsOfRain.Editor.Building
                         }
                     }
                 }*/
-                List<string> outputAssetBundleNames = (List<string>)m_OutputAssetBundleNames.GetValue(this);
+                /*List<string> outputAssetBundleNames = (List<string>)m_OutputAssetBundleNames.GetValue(this);
 
                 pipeline.Log(LogLevel.Information, "allBundleInputDefs:");
                 foreach (var bundleDef in allBundleInputDefs)
@@ -139,7 +142,7 @@ namespace AssetsOfRain.Editor.Building
                 foreach (var bundle in aaContext.bundleToAssetGroup.Keys)
                 {
                     pipeline.Log(LogLevel.Information, bundle);
-                }
+                }*/
                 /*foreach (var bundleToAssetGroup in aaContext.bundleToAssetGroup)
                 {
                     var group = aaContext.Settings.FindGroup(x => x && x.Guid == bundleToAssetGroup.Value);
@@ -152,7 +155,16 @@ namespace AssetsOfRain.Editor.Building
                 }*/
             }
             pipeline.Log(LogLevel.Information, "Continuing build..");
-            return base.DoBuild<TResult>(builderInput, aaContext);
+            ContentPipeline.BuildCallbacks.PostWritingCallback = (IBuildParameters parameters, IDependencyData dependencyData, IWriteData writeData, IBuildResults results) =>
+            {
+                //aaContext.locations.RemoveAll(x => x.InternalId.Contains("StandaloneWindows64"));
+                ((ModdedAddressableAssetsBuildContext)aaContext).LogDependencies();
+                return ReturnCode.Success;
+            };
+            var buildResult = base.DoBuild<TResult>(builderInput, aaContext);
+            ContentPipeline.BuildCallbacks.PostWritingCallback = null;
+            ((ModdedAddressableAssetsBuildContext)aaContext).LogDependencies();
+            return buildResult;
         }
 
     }

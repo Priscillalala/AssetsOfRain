@@ -90,7 +90,10 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 group.Name = groupName;
                 group.bundleName = bundleName;
                 BundledAssetGroupSchema bundledAssetGroupSchema = group.AddSchema<BundledAssetGroupSchema>();
-                m_Id.SetValue(bundledAssetGroupSchema.LoadPath, "{CatchTheRainbow.CatchTheRainbowPlugin.AddressablesRuntimePath}/StandaloneWindows64");
+                m_Id.SetValue(bundledAssetGroupSchema.BuildPath, "ThunderKit/AssetsOfRain/VirtualAssetBundleStaging");
+                //m_Id.SetValue(bundledAssetGroupSchema.LoadPath, "{UnityEngine.Application.streamingAssetsPath}/aa/StandaloneWindows64");
+                //m_Id.SetValue(bundledAssetGroupSchema.LoadPath, "{CatchTheRainbow.CatchTheRainbowPlugin.AddressablesRuntimePath}/StandaloneWindows64");
+                m_Id.SetValue(bundledAssetGroupSchema.LoadPath, "[AssetsOfRain.Editor.AssetsOfRain.AddressablesRuntimePath]/StandaloneWindows64");
                 bundledAssetGroupSchema.UseAssetBundleCrc = false;
                 bundledAssetGroupSchema.UseAssetBundleCrcForCachedBundles = false;
                 bundledAssetGroupSchema.IncludeAddressInCatalog = false;
