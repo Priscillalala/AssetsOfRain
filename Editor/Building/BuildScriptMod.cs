@@ -14,6 +14,7 @@ using UnityEditor.Build.Pipeline.Interfaces;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.AddressableAssets.ResourceLocators;
+using UnityEngine.ResourceManagement.Util;
 using LogLevel = ThunderKit.Core.Pipelines.LogLevel;
 
 namespace AssetsOfRain.Editor.Building
@@ -24,6 +25,7 @@ namespace AssetsOfRain.Editor.Building
         private static readonly FieldInfo m_AllBundleInputDefs = typeof(BuildScriptPackedMode).GetField("m_AllBundleInputDefs", BindingFlags.Instance | BindingFlags.NonPublic);
         private static readonly FieldInfo m_OutputAssetBundleNames = typeof(BuildScriptPackedMode).GetField("m_OutputAssetBundleNames", BindingFlags.Instance | BindingFlags.NonPublic);
         private static readonly FieldInfo m_BundleToInternalId = typeof(BuildScriptPackedMode).GetField("m_BundleToInternalId", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly FieldInfo m_ResourceProviderData = typeof(BuildScriptPackedMode).GetField("m_ResourceProviderData", BindingFlags.Instance | BindingFlags.NonPublic);
 
         public override string Name => "Build Modded Content";
 
@@ -88,8 +90,11 @@ namespace AssetsOfRain.Editor.Building
 
             ReturnCode PostWriting(IBuildParameters parameters, IDependencyData dependencyData, IWriteData writeData, IBuildResults results)
             {
+                List<ObjectInitializationData> resourceProviderData = (List<ObjectInitializationData>)m_ResourceProviderData.GetValue(this);
                 Dictionary<string, string> bundleToInternalId = (Dictionary<string, string>)m_BundleToInternalId.GetValue(this);
+
                 string providerId = typeof(TempAssetBundleProvider).FullName;
+                resourceProviderData.RemoveAll(x => x.Id == providerId);
                 Dictionary<object, List<object>> tempAssetBundleToAssetDependencies = new Dictionary<object, List<object>>();
                 for (int i = aaContext.locations.Count - 1; i >= 0; i--)
                 {
