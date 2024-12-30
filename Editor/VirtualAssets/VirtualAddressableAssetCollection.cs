@@ -11,6 +11,8 @@ using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings.GroupSchemas;
 using Object = UnityEngine.Object;
 using System.Reflection;
+using UnityEngine.ResourceManagement.Util;
+using AssetsOfRain.Editor.Building;
 
 namespace AssetsOfRain.Editor.VirtualAssets
 {
@@ -18,6 +20,8 @@ namespace AssetsOfRain.Editor.VirtualAssets
     public class VirtualAddressableAssetCollection
     {
         private static readonly FieldInfo m_Id = typeof(ProfileValueReference).GetField("m_Id", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly FieldInfo m_AssetBundleProviderType = typeof(BundledAssetGroupSchema).GetField("m_AssetBundleProviderType", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly FieldInfo m_BundledAssetProviderType = typeof(BundledAssetGroupSchema).GetField("m_BundledAssetProviderType", BindingFlags.Instance | BindingFlags.NonPublic);
 
         [SerializeField]
         private string directory;
@@ -78,6 +82,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
 
             string bundleFileName = Path.GetFileNameWithoutExtension(bundleLocation.InternalId);
             string groupName = bundleFileName[..bundleFileName.LastIndexOf("_assets_")];
+            //string groupName = Path.ChangeExtension(virtualAssetPath, null).Replace('/', '-').Replace('\\', '-');
             string groupPath = Path.Combine(groupsDirectory, Path.ChangeExtension(groupName, "asset")); 
             
             string bundleName = Path.ChangeExtension(assetBundleRequestOptions.BundleName, "bundle");
@@ -91,19 +96,21 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 group.bundleName = bundleName;
                 BundledAssetGroupSchema bundledAssetGroupSchema = group.AddSchema<BundledAssetGroupSchema>();
                 m_Id.SetValue(bundledAssetGroupSchema.BuildPath, "ThunderKit/AssetsOfRain/VirtualAssetBundleStaging");
-                //m_Id.SetValue(bundledAssetGroupSchema.LoadPath, "{UnityEngine.Application.streamingAssetsPath}/aa/StandaloneWindows64");
-                //m_Id.SetValue(bundledAssetGroupSchema.LoadPath, "{CatchTheRainbow.CatchTheRainbowPlugin.AddressablesRuntimePath}/StandaloneWindows64");
-                m_Id.SetValue(bundledAssetGroupSchema.LoadPath, "[AssetsOfRain.Editor.AssetsOfRain.AddressablesRuntimePath]/StandaloneWindows64");
+                //m_Id.SetValue(bundledAssetGroupSchema.LoadPath, "[AssetsOfRain.Editor.AssetsOfRain.AddressablesRuntimePath]/StandaloneWindows64");
+                m_Id.SetValue(bundledAssetGroupSchema.LoadPath, string.Empty);
+                m_AssetBundleProviderType.SetValue(bundledAssetGroupSchema, new SerializedType { Value = typeof(TempAssetBundleProvider) });
+                m_BundledAssetProviderType.SetValue(bundledAssetGroupSchema, new SerializedType { Value = typeof(AssetDependencyProvider) });
                 bundledAssetGroupSchema.UseAssetBundleCrc = false;
                 bundledAssetGroupSchema.UseAssetBundleCrcForCachedBundles = false;
-                bundledAssetGroupSchema.IncludeAddressInCatalog = false;
+                bundledAssetGroupSchema.IncludeAddressInCatalog = true;// false;
                 bundledAssetGroupSchema.IncludeGUIDInCatalog = false;
                 bundledAssetGroupSchema.IncludeLabelsInCatalog = false;
                 bundledAssetGroupSchema.BundleNaming = BundledAssetGroupSchema.BundleNamingStyle.NoHash;
                 Directory.CreateDirectory(groupsDirectory);
                 AssetDatabase.CreateAsset(group, groupPath);
             }
-            aaSettings.CreateOrMoveEntry(AssetDatabase.AssetPathToGUID(virtualAssetPath), group, true);
+            var entry = aaSettings.CreateOrMoveEntry(AssetDatabase.AssetPathToGUID(virtualAssetPath), group, true);
+            entry.SetAddress(assetRequest.primaryKey);
         }
 
         public void DeleteVirtualAsset(SerializableAssetRequest assetRequest)

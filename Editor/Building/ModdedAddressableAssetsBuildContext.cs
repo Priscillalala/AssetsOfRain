@@ -10,7 +10,7 @@ using LogLevel = ThunderKit.Core.Pipelines.LogLevel;
 
 namespace AssetsOfRain.Editor.Building
 {
-    public class ModdedAddressableAssetsBuildContext : AddressableAssetsBuildContext, IDeterministicIdentifiers//, IWritingCallback
+    public class ModdedAddressableAssetsBuildContext : AddressableAssetsBuildContext, IDeterministicIdentifiers
     {
         private readonly Unity5PackedIdentifiers deterministicIdentifier = new Unity5PackedIdentifiers();
 
@@ -28,13 +28,6 @@ namespace AssetsOfRain.Editor.Building
                 return identifier;
             }
             return deterministicIdentifier.SerializationIndexFromObjectIdentifier(objectID);
-        }
-
-        public ReturnCode PostWriting(IBuildParameters parameters, IDependencyData dependencyData, IWriteData writeData, IBuildResults results)
-        {
-            throw new Exception("Post writing");
-            LogDependencies();
-            return ReturnCode.Success;
         }
 
         public void LogDependencies()

@@ -1,6 +1,7 @@
 ﻿using AssetsOfRain.Editor.Util;
 using System.Collections.Generic;
 using System.Linq;
+using ThunderKit.Addressable.Config;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -58,31 +59,13 @@ This is only necessary if your asset database has been corrupted in some way!";
             }
         }
 
-        [MenuItem(MENU_ROOT + "MonoScriptTest")]
+        [MenuItem(MENU_ROOT + "Debug/Fix Addressables")]
         public static void MonoScriptTest()
         {
-            Debug.Log("MonoScriptTest:");
-            foreach (var locator in Addressables.ResourceLocators)
-            {
-                foreach (var key in locator.Keys)
-                {
-                    if (locator.Locate(key, typeof(object), out IList<IResourceLocation> locations))
-                    {
-                        foreach (var location in locations)
-                        {
-                            if (location.Dependencies == null)
-                            {
-                                continue;
-                            }
-                            IResourceLocation bundleLocation = location.Dependencies.FirstOrDefault(x => x.Data is AssetBundleRequestOptions);
-                            if (bundleLocation != null && bundleLocation.InternalId.Contains("calmwater"))
-                            {
-                                Debug.Log(location.PrimaryKey);
-                            }
-                        }
-                    }
-                }
-            }
+            var importAddressablesCatalog = ScriptableObject.CreateInstance<ImportAddressableCatalog>();
+            importAddressablesCatalog.Execute();
+            Object.DestroyImmediate(importAddressablesCatalog);
+            AssetDatabase.Refresh();
         }
     }
 }
