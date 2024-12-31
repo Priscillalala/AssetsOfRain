@@ -91,6 +91,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
             if (!group)
             {
                 group = ScriptableObject.CreateInstance<VirtualAddressableAssetGroup>();
+                group.hideFlags = HideFlags.NotEditable;
                 //group.Initialize(this, validName, GUID.Generate().ToString(), readOnly);
                 group.Name = groupName;
                 group.Init(bundleLocation, assetLocation.Dependencies);

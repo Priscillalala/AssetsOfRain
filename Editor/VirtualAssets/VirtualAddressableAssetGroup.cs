@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Text;
 using UnityEditor;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.Build.Pipeline;
@@ -9,6 +11,7 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.ResourceLocations;
 using UnityEngine.ResourceManagement.ResourceProviders;
+using UnityMD4 = UnityEditor.Build.Pipeline.Utilities.MD4;
 
 namespace AssetsOfRain.Editor.VirtualAssets
 {
@@ -55,13 +58,17 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 return;
             }
             List<SerializableAssetBundleLocation> foundDependencies = new List<SerializableAssetBundleLocation>();
+            using UnityMD4 hashingAlgorithm = UnityMD4.Create();
             foreach (IResourceLocation possibleDependency in possibleDependencies)
             {
                 if (possibleDependency.Data is not AssetBundleRequestOptions assetBundleRequestOptions)
                 {
                     continue;
                 }
-                string internalName = "cab-" + HashingMethods.Calculate<UnityEditor.Build.Pipeline.Utilities.MD4>(Path.ChangeExtension(assetBundleRequestOptions.BundleName, "bundle"));
+
+                string dependencyBundleName = Path.ChangeExtension(assetBundleRequestOptions.BundleName, "bundle");
+                byte[] dependencyBundleNameHash = hashingAlgorithm.ComputeHash(Encoding.ASCII.GetBytes(dependencyBundleName));
+                string internalName = "cab-" + BitConverter.ToString(dependencyBundleNameHash).Replace("-", "").ToLower();
                 if (internalDependencyNames.Remove(internalName))
                 {
                     foundDependencies.Add(new SerializableAssetBundleLocation(possibleDependency));
@@ -70,6 +77,10 @@ namespace AssetsOfRain.Editor.VirtualAssets
                         break;
                     }
                 }
+            }
+            if (internalDependencyNames.Count > 0)
+            {
+                Debug.LogWarning($"VirtualAddressableAssetGroup {Name} failed to locate the following dependencies: {string.Join(", ", internalDependencyNames)}");
             }
             dependencies = foundDependencies.ToArray();
         }
