@@ -38,34 +38,6 @@ namespace AssetsOfRain.Editor.Building
         {
             pipeline.Log(LogLevel.Information, "Building a mod with addressables!");
 
-            Dictionary<ObjectIdentifier, long> virtualAssetIdentifiers = new Dictionary<ObjectIdentifier, long>();
-            foreach (var virtualAssetPath in AssetDatabase.FindAssets($"glob:\"*.{VirtualAddressableAssetImporter.EXTENSION}\" a:assets").Select(AssetDatabase.GUIDToAssetPath))
-            {
-                if (AssetImporter.GetAtPath(virtualAssetPath) is not VirtualAddressableAssetImporter importer || importer.results == null)
-                {
-                    continue;
-                }
-                foreach (var result in importer.results)
-                {
-                    if (ObjectIdentifier.TryGetObjectIdentifier(result.asset, out ObjectIdentifier objectId))
-                    {
-                        virtualAssetIdentifiers[objectId] = result.identifier;
-                    }
-                }
-            }
-
-            /*aaContext = new ModdedAddressableAssetsBuildContext
-            {
-                Settings = aaContext.Settings,
-                runtimeData = aaContext.runtimeData,
-                locations = aaContext.locations,
-                bundleToAssetGroup = aaContext.bundleToAssetGroup,
-                assetGroupToBundles = aaContext.assetGroupToBundles,
-                providerTypes = aaContext.providerTypes,
-                assetEntries = aaContext.assetEntries,
-                virtualAssetIdentifiers = virtualAssetIdentifiers,
-            };*/
-
             List<AssetBundleBuild> allBundleInputDefs = (List<AssetBundleBuild>)m_AllBundleInputDefs.GetValue(this);
             if (allBundleInputDefs != null && allBundleInputDefs.Count > 0)
             {
@@ -140,87 +112,28 @@ namespace AssetsOfRain.Editor.Building
                         dataEntry.Dependencies.AddRange(newDependencies);
                     }
                 }
-                /*List<ObjectInitializationData> resourceProviderData = (List<ObjectInitializationData>)m_ResourceProviderData.GetValue(this);
-                Dictionary<string, string> bundleToInternalId = (Dictionary<string, string>)m_BundleToInternalId.GetValue(this);
-
-                string providerId = typeof(TempAssetBundleProvider).FullName;
-                resourceProviderData.RemoveAll(x => x.Id == providerId);
-                Dictionary<object, List<object>> tempAssetBundleToAssetDependencies = new Dictionary<object, List<object>>();
-                for (int i = aaContext.locations.Count - 1; i >= 0; i--)
-                {
-                    ContentCatalogDataEntry dataEntry = aaContext.locations[i];
-                    if (dataEntry.Provider == providerId)
-                    {
-                        pipeline.Log(LogLevel.Information, $"Temp asset bundle: {dataEntry.InternalId}", $"Key\n{dataEntry.Keys[0]}");
-                        List<object> assetDependencies = new List<object>();
-                        foreach (var key in dataEntry.Keys)
-                        {
-                            tempAssetBundleToAssetDependencies.Add(key, assetDependencies);
-                        }
-                        bundleToInternalId.Add((string)dataEntry.Keys[0], dataEntry.InternalId);
-                        aaContext.locations.RemoveAt(i);
-                    }
-                }
-                providerId = typeof(AssetDependencyProvider).FullName;
-                foreach (var dataEntry in aaContext.locations)
-                {
-                    if (dataEntry.Provider == providerId)
-                    {
-                        pipeline.Log(LogLevel.Information, $"Asset dependency provider: {dataEntry.InternalId}", $"Asset dependency provider\n{dataEntry.InternalId}");
-                        foreach (var dependency in dataEntry.Dependencies)
-                        {
-                            if (tempAssetBundleToAssetDependencies.TryGetValue(dependency, out var assetDependencies))
-                            {
-                                assetDependencies.AddRange(dataEntry.Keys);
-                            }
-                        }
-                        dataEntry.Dependencies.Clear();
-                        dataEntry.Dependencies.AddRange(dataEntry.Keys);
-                        dataEntry.InternalId = string.Empty;
-                    }
-                }
-                foreach (var dataEntry in aaContext.locations)
-                {
-                    if (dataEntry.Provider != providerId)
-                    {
-                        for (int i = dataEntry.Dependencies.Count - 1; i >= 0; i--)
-                        {
-                            if (tempAssetBundleToAssetDependencies.TryGetValue(dataEntry.Dependencies[i], out var assetDependencies))
-                            {
-                                pipeline.Log(LogLevel.Information, $"Replace dependency {dataEntry.Dependencies[i]} on {dataEntry.InternalId}", $"dependency\n{dataEntry.Dependencies[i]}", $"entry\n{dataEntry.InternalId}");
-                                dataEntry.Dependencies.RemoveAt(i);
-                                dataEntry.Dependencies.AddRange(assetDependencies);
-                            }
-                        }
-                    }
-                }*/
                 return ReturnCode.Success;
             }
 
             ReturnCode PostPacking(IBuildParameters parameters, IDependencyData dependencyData, IWriteData writeData)
             {
-                /*HashSet<string> ignoredBundleNames = new HashSet<string>(aaContext.Settings.groups.OfType<VirtualAddressableAssetGroup>().Select(x => x.bundleName));
-                writeData.WriteOperations.RemoveAll(x =>
-                {
-                    return x is AssetBundleWriteOperation writeOperation && ignoredBundleNames.Contains(writeOperation.Info.bundleName);
-                });*/
-                foreach (var writeOperation in writeData.WriteOperations)
-                {
-                    foreach (var serializeObject in writeOperation.Command.serializeObjects)
-                    {
-                        if (virtualAssetIdentifiers.TryGetValue(serializeObject.serializationObject, out long identifier))
-                        {
-                            serializeObject.serializationIndex = identifier;
-                            writeOperation.ReferenceMap.AddMapping(writeOperation.Command.internalName, identifier, serializeObject.serializationObject, true);
-                        }
-                    }
-                }
                 if (writeData is IBundleWriteData bundleWriteData)
                 {
-                    Dictionary<string, WriteCommand> fileToCommand;
-                    Dictionary<string, HashSet<ObjectIdentifier>> forwardObjectDependencies;
-                    Dictionary<string, HashSet<string>> forwardFileDependencies;
-
+                    Dictionary<ObjectIdentifier, long> virtualAssetIdentifiers = new Dictionary<ObjectIdentifier, long>();
+                    foreach (var virtualAssetPath in AssetDatabase.FindAssets($"glob:\"*.{VirtualAddressableAssetImporter.EXTENSION}\" a:assets").Select(AssetDatabase.GUIDToAssetPath))
+                    {
+                        if (AssetImporter.GetAtPath(virtualAssetPath) is not VirtualAddressableAssetImporter importer || importer.results == null)
+                        {
+                            continue;
+                        }
+                        foreach (var result in importer.results)
+                        {
+                            if (ObjectIdentifier.TryGetObjectIdentifier(result.asset, out ObjectIdentifier objectId))
+                            {
+                                virtualAssetIdentifiers[objectId] = result.identifier;
+                            }
+                        }
+                    }
                     // BuildReferenceMap details what objects exist in other bundles that objects in a source bundle depend upon (forward dependencies)
                     // BuildUsageTagSet details the conditional data needed to be written by objects in a source bundle that is in used by objects in other bundles (reverse dependencies)
 
@@ -233,9 +146,9 @@ namespace AssetsOfRain.Editor.Building
                         dictionary.Add(key, value);
                     }
 
-                    fileToCommand = bundleWriteData.WriteOperations.ToDictionary(x => x.Command.internalName, x => x.Command);
-                    forwardObjectDependencies = new Dictionary<string, HashSet<ObjectIdentifier>>();
-                    forwardFileDependencies = new Dictionary<string, HashSet<string>>();
+                    var fileToCommand = bundleWriteData.WriteOperations.ToDictionary(x => x.Command.internalName, x => x.Command);
+                    var forwardObjectDependencies = new Dictionary<string, HashSet<ObjectIdentifier>>();
+                    var forwardFileDependencies = new Dictionary<string, HashSet<string>>();
                     foreach (var pair in bundleWriteData.AssetToFiles)
                     {
                         GUID asset = pair.Key;
@@ -284,7 +197,6 @@ namespace AssetsOfRain.Editor.Building
 
                                 if (virtualAssetIdentifiers.TryGetValue(serializeObject.serializationObject, out long identifier))
                                 {
-                                    pipeline.Log(LogLevel.Information, identifier.ToString());
                                     referenceMap.AddMapping(file, identifier, serializeObject.serializationObject, true);
                                 }
                             }
