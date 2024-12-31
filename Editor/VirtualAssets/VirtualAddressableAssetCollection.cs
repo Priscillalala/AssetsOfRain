@@ -85,7 +85,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
             //string groupName = Path.ChangeExtension(virtualAssetPath, null).Replace('/', '-').Replace('\\', '-');
             string groupPath = Path.Combine(groupsDirectory, Path.ChangeExtension(groupName, "asset")); 
             
-            string bundleName = Path.ChangeExtension(assetBundleRequestOptions.BundleName, "bundle");
+            //string bundleName = Path.ChangeExtension(assetBundleRequestOptions.BundleName, "bundle");
 
             VirtualAddressableAssetGroup group = AssetDatabase.LoadAssetAtPath<VirtualAddressableAssetGroup>(groupPath);
             if (!group)
@@ -93,16 +93,17 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 group = ScriptableObject.CreateInstance<VirtualAddressableAssetGroup>();
                 //group.Initialize(this, validName, GUID.Generate().ToString(), readOnly);
                 group.Name = groupName;
-                group.bundleName = bundleName;
+                group.Init(bundleLocation, assetLocation.Dependencies);
+                //group.bundleName = bundleName;
                 BundledAssetGroupSchema bundledAssetGroupSchema = group.AddSchema<BundledAssetGroupSchema>();
                 m_Id.SetValue(bundledAssetGroupSchema.BuildPath, "ThunderKit/AssetsOfRain/VirtualAssetBundleStaging");
-                //m_Id.SetValue(bundledAssetGroupSchema.LoadPath, "[AssetsOfRain.Editor.AssetsOfRain.AddressablesRuntimePath]/StandaloneWindows64");
-                m_Id.SetValue(bundledAssetGroupSchema.LoadPath, string.Empty);
-                m_AssetBundleProviderType.SetValue(bundledAssetGroupSchema, new SerializedType { Value = typeof(TempAssetBundleProvider) });
-                m_BundledAssetProviderType.SetValue(bundledAssetGroupSchema, new SerializedType { Value = typeof(AssetDependencyProvider) });
+                m_Id.SetValue(bundledAssetGroupSchema.LoadPath, "[AssetsOfRain.Editor.AssetsOfRain.AddressablesRuntimePath]/StandaloneWindows64");
+                //m_Id.SetValue(bundledAssetGroupSchema.LoadPath, string.Empty);
+                //m_AssetBundleProviderType.SetValue(bundledAssetGroupSchema, new SerializedType { Value = typeof(TempAssetBundleProvider) });
+                //m_BundledAssetProviderType.SetValue(bundledAssetGroupSchema, new SerializedType { Value = typeof(AssetDependencyProvider) });
                 bundledAssetGroupSchema.UseAssetBundleCrc = false;
                 bundledAssetGroupSchema.UseAssetBundleCrcForCachedBundles = false;
-                bundledAssetGroupSchema.IncludeAddressInCatalog = true;// false;
+                bundledAssetGroupSchema.IncludeAddressInCatalog = false;
                 bundledAssetGroupSchema.IncludeGUIDInCatalog = false;
                 bundledAssetGroupSchema.IncludeLabelsInCatalog = false;
                 bundledAssetGroupSchema.BundleNaming = BundledAssetGroupSchema.BundleNamingStyle.NoHash;

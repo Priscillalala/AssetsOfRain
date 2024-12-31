@@ -29,18 +29,5 @@ namespace AssetsOfRain.Editor.Building
             }
             return deterministicIdentifier.SerializationIndexFromObjectIdentifier(objectID);
         }
-
-        public void LogDependencies()
-        {
-            BuildScriptMod.pipeline.Log(LogLevel.Information, "LogDependencies:");
-            foreach (var location in locations)
-            {
-                BuildScriptMod.pipeline.Log(LogLevel.Information, $"Location {location.InternalId}, keys: {string.Join(", ", location.Keys)}");
-                foreach (var dependency in location.Dependencies)
-                {
-                    BuildScriptMod.pipeline.Log(LogLevel.Information, $"Dependency is {dependency}");
-                }
-            }
-        }
     }
 }

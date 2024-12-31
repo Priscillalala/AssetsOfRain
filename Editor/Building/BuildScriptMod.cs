@@ -11,9 +11,12 @@ using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.Build.Content;
 using UnityEditor.Build.Pipeline;
 using UnityEditor.Build.Pipeline.Interfaces;
+using UnityEditor.Build.Pipeline.WriteTypes;
+using UnityEditor.VersionControl;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.AddressableAssets.ResourceLocators;
+using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.ResourceManagement.Util;
 using LogLevel = ThunderKit.Core.Pipelines.LogLevel;
 
@@ -90,7 +93,54 @@ namespace AssetsOfRain.Editor.Building
 
             ReturnCode PostWriting(IBuildParameters parameters, IDependencyData dependencyData, IWriteData writeData, IBuildResults results)
             {
-                List<ObjectInitializationData> resourceProviderData = (List<ObjectInitializationData>)m_ResourceProviderData.GetValue(this);
+                var virtualGroupByKey = aaContext.Settings.groups
+                    .OfType<VirtualAddressableAssetGroup>()
+                    .ToDictionary(x => x.bundleName);
+
+                HashSet<string> newDependencyEntryKeys = new HashSet<string>();
+
+                for (int i = aaContext.locations.Count - 1; i >= 0; i--)
+                {
+                    ContentCatalogDataEntry dataEntry = aaContext.locations[i];
+                    if (typeof(IAssetBundleResource).IsAssignableFrom(dataEntry.ResourceType))
+                    {
+                        if (dataEntry.Keys == null || dataEntry.Keys.FirstOrDefault() is not string primaryKey || !virtualGroupByKey.TryGetValue(primaryKey, out var virtualGroup))
+                        {
+                            continue;
+                        }
+                        pipeline.Log(LogLevel.Information, $"Virtual Group entry: {dataEntry.InternalId}", $"Key\n{dataEntry.Keys[0]}");
+                        dataEntry.Data = virtualGroup.data;
+                        foreach (var dependency in virtualGroup.dependencies)
+                        {
+                            if (newDependencyEntryKeys.Add(dependency.primaryKey))
+                            {
+                                aaContext.locations.Add(new ContentCatalogDataEntry(
+                                    typeof(IAssetBundleResource),
+                                    dependency.internalId,
+                                    dataEntry.Provider,
+                                    new[] { dependency.primaryKey },
+                                    extraData: dependency.data));
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (dataEntry.Dependencies == null || dataEntry.Dependencies.Count == 0)
+                        {
+                            continue;
+                        }
+                        HashSet<string> newDependencies = new HashSet<string>();
+                        foreach (var dependency in dataEntry.Dependencies.OfType<string>())
+                        {
+                            if (virtualGroupByKey.TryGetValue(dependency, out var virtualGroup))
+                            {
+                                newDependencies.UnionWith(virtualGroup.dependencies.Select(x => x.primaryKey));
+                            }
+                        }
+                        dataEntry.Dependencies.AddRange(newDependencies);
+                    }
+                }
+                /*List<ObjectInitializationData> resourceProviderData = (List<ObjectInitializationData>)m_ResourceProviderData.GetValue(this);
                 Dictionary<string, string> bundleToInternalId = (Dictionary<string, string>)m_BundleToInternalId.GetValue(this);
 
                 string providerId = typeof(TempAssetBundleProvider).FullName;
@@ -143,89 +193,27 @@ namespace AssetsOfRain.Editor.Building
                             }
                         }
                     }
-                }
-                //((ModdedAddressableAssetsBuildContext)aaContext).LogDependencies();
+                }*/
+                return ReturnCode.Success;
+            }
+
+            ReturnCode PostPacking(IBuildParameters parameters, IDependencyData dependencyData, IWriteData writeData)
+            {
+                /*HashSet<string> ignoredBundleNames = new HashSet<string>(aaContext.Settings.groups.OfType<VirtualAddressableAssetGroup>().Select(x => x.bundleName));
+                writeData.WriteOperations.RemoveAll(x =>
+                {
+                    return x is AssetBundleWriteOperation writeOperation && ignoredBundleNames.Contains(writeOperation.Info.bundleName);
+                });*/
                 return ReturnCode.Success;
             }
 
             ContentPipeline.BuildCallbacks.PostWritingCallback = PostWriting;
+            ContentPipeline.BuildCallbacks.PostPackingCallback = PostPacking;
             pipeline.Log(LogLevel.Information, "Continuing build..");
             var buildResult = base.DoBuild<TResult>(builderInput, aaContext);
             ContentPipeline.BuildCallbacks.PostWritingCallback = null;
-            //((ModdedAddressableAssetsBuildContext)aaContext).LogDependencies();
+            ContentPipeline.BuildCallbacks.PostPackingCallback = null;
             return buildResult;
-            /*var importedBundlePaths = AssetDatabase.FindAssets($"t:{nameof(ImportedBundle)}").Select(AssetDatabase.GUIDToAssetPath).ToArray();
-            foreach (string importedBundlePath in importedBundlePaths)
-            {
-                string assetBundleName = AssetDatabase.LoadAssetAtPath<ImportedBundle>(importedBundlePath).assetBundleName;
-                allBundleInputDefs.Add(new AssetBundleBuild
-                {
-                    assetBundleName = assetBundleName,
-                    assetNames = new string[] { importedBundlePath },
-                });
-                outputAssetBundleNames.Add(assetBundleName);
-            }*/
-
-            /*foreach (string importedBundleGuid in AssetDatabase.FindAssets($"t:{nameof(ImportedBundle)}"))
-            {
-                AddressableAssetEntry entry = aaContext.Settings.FindAssetEntry(importedBundleGuid);
-                if (entry == null)
-                {
-                    continue;
-                }
-
-                string assetGroupGuid = entry.parentGroup.Guid;
-                if (!aaContext.bundleToAssetGroup.ContainsValue(assetGroupGuid))
-                {
-                    continue;
-                }
-
-                string originalAssetBundleName = aaContext.bundleToAssetGroup.FirstOrDefault(x => x.Value == assetGroupGuid).Key;
-                string importedBundlePath = AssetDatabase.GUIDToAssetPath(importedBundleGuid);
-                string assetBundleName = AssetDatabase.LoadAssetAtPath<ImportedBundle>(importedBundlePath).assetBundleName;
-
-                aaContext.bundleToAssetGroup.Remove(originalAssetBundleName);
-                aaContext.bundleToAssetGroup.Add(assetBundleName, assetGroupGuid);
-
-                for (int i = 0; i < allBundleInputDefs.Count; i++)
-                {
-                    var bundleInputDef = allBundleInputDefs[i];
-                    if (bundleInputDef.assetBundleName == originalAssetBundleName)
-                    {
-                        bundleInputDef.assetBundleName = assetBundleName;
-                        allBundleInputDefs[i] = bundleInputDef;
-                    }
-                }
-            }*/
-            /*List<string> outputAssetBundleNames = (List<string>)m_OutputAssetBundleNames.GetValue(this);
-
-            pipeline.Log(LogLevel.Information, "allBundleInputDefs:");
-            foreach (var bundleDef in allBundleInputDefs)
-            {
-                pipeline.Log(LogLevel.Information, bundleDef.assetBundleName);
-                pipeline.Log(LogLevel.Information, string.Join(", ", bundleDef.assetNames));
-            }
-            pipeline.Log(LogLevel.Information, "outputAssetBundleNames:");
-            foreach (var outputAssetBundleName in outputAssetBundleNames)
-            {
-                pipeline.Log(LogLevel.Information, outputAssetBundleName);
-            }
-            pipeline.Log(LogLevel.Information, "bundleToAssetGroup:");
-            foreach (var bundle in aaContext.bundleToAssetGroup.Keys)
-            {
-                pipeline.Log(LogLevel.Information, bundle);
-            }*/
-            /*foreach (var bundleToAssetGroup in aaContext.bundleToAssetGroup)
-            {
-                var group = aaContext.Settings.FindGroup(x => x && x.Guid == bundleToAssetGroup.Value);
-                var importedBundle = group.entries.Select(x => x.MainAsset).OfType<ImportedBundle>().FirstOrDefault();
-                if (importedBundle)
-                {
-                    string originalAssetBundleName = bundleToAssetGroup.Key;
-
-                }
-            }*/
         }
-
     }
 }
