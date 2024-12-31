@@ -102,7 +102,7 @@ namespace AssetsOfRain.Editor.Materials
                         {
                             Debug.Log($"OnPostprocessAllAssets set {material.name} shader");
                             //MaterialDataStorage.instance.materialToPersistentShader[material.GetInstanceID()] = AssetDatabase.LoadAssetAtPath<Shader>(materialsWithShaderGroup.Key);
-                            material.shader = shader;
+                            //material.shader = shader;
                         }
                     }
                 };
@@ -125,7 +125,7 @@ namespace AssetsOfRain.Editor.Materials
             {
                 Debug.Log($"Setting material {material.name} to use shader {importer.request.primaryKey} temporarily");
                 MaterialDataStorage.instance.materialToPersistentShader[material.GetInstanceID()] = shader;
-                material.shader = Addressables.LoadAssetAsync<Shader>(importer.request.AssetLocation).WaitForCompletion();
+                //material.shader = Addressables.LoadAssetAsync<Shader>(importer.request.AssetLocation).WaitForCompletion();
             }
             else
             {

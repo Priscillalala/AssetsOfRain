@@ -144,6 +144,17 @@ namespace AssetsOfRain.Editor.Building
                             }
                         }
                     }
+                    foreach (var writeOperation in writeData.WriteOperations)
+                    {
+                        foreach (var serializeObject in writeOperation.Command.serializeObjects)
+                        {
+                            if (virtualAssetIdentifiers.TryGetValue(serializeObject.serializationObject, out long identifier))
+                            {
+                                serializeObject.serializationIndex = identifier;
+                                writeOperation.ReferenceMap.AddMapping(writeOperation.Command.internalName, identifier, serializeObject.serializationObject, true);
+                            }
+                        }
+                    }
                     // BuildReferenceMap details what objects exist in other bundles that objects in a source bundle depend upon (forward dependencies)
                     // BuildUsageTagSet details the conditional data needed to be written by objects in a source bundle that is in used by objects in other bundles (reverse dependencies)
 

@@ -13,6 +13,7 @@ using ThunderKit.Core.Paths;
 using UnityEditor.AddressableAssets.Build.DataBuilders;
 using System.Reflection;
 using System;
+using UnityEditor.AddressableAssets.Build;
 
 namespace AssetsOfRain.Editor.Building
 {
@@ -42,6 +43,7 @@ namespace AssetsOfRain.Editor.Building
                 Addressables.profileSettings.SetValue(Addressables.activeProfileId, Addressables.RemoteCatalogLoadPath.GetName(Addressables), resolvedLoadPath);
                 Addressables.OverridePlayerVersion = pipeline.Manifest.Identity.Name;
                 Addressables.ContiguousBundles = false;
+                Addressables.MonoScriptBundleNaming = MonoScriptBundleNaming.ProjectName;
                 if (!Addressables.DataBuilders.OfType<BuildScriptMod>().Any())
                 {
                     Addressables.AddDataBuilder(AssetDatabase.LoadAssetAtPath<BuildScriptMod>(AssetsOfRain.PACKAGE_ASSETS_DIRECTORY + "/BuildScriptMod.asset"));
