@@ -15,23 +15,30 @@ namespace AssetsOfRain.Editor.VirtualAssets
     public class VirtualAddressableAssetGroup : AddressableAssetGroup
     {
         [Serializable]
-        public struct AssetBundleDependency
+        public struct SerializableAssetBundleLocation
         {
             public string primaryKey;
             public string internalId;
             public AssetBundleRequestOptions data;
+
+            public SerializableAssetBundleLocation(IResourceLocation bundleLocation)
+            {
+                primaryKey = bundleLocation.PrimaryKey;
+                internalId = Path.Combine("{UnityEngine.AddressableAssets.Addressables.RuntimePath}", "StandaloneWindows64", Path.GetFileName(bundleLocation.InternalId));
+                data = (AssetBundleRequestOptions)bundleLocation.Data;
+            }
         }
 
         public override bool ReadOnly => true;
 
         public string bundleName;
-        public AssetBundleRequestOptions data;
-        public AssetBundleDependency[] dependencies;
+        public SerializableAssetBundleLocation location;
+        public SerializableAssetBundleLocation[] dependencies;
 
         public void Init(IResourceLocation bundleLocation, IList<IResourceLocation> possibleDependencies)
         {
-            data = (AssetBundleRequestOptions)bundleLocation.Data;
-            bundleName = Path.ChangeExtension(data.BundleName, "bundle");
+            bundleName = Path.ChangeExtension(((AssetBundleRequestOptions)bundleLocation.Data).BundleName, "bundle");
+            location = new SerializableAssetBundleLocation(bundleLocation);
 
             var assetBundleResource = Addressables.LoadAssetAsync<IAssetBundleResource>(bundleLocation).WaitForCompletion();
             using SerializedObject serializedObject = new SerializedObject(assetBundleResource.GetAssetBundle());
@@ -42,7 +49,12 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 string internalDependencyName = m_Dependencies.GetArrayElementAtIndex(i).stringValue;
                 internalDependencyNames.Add(internalDependencyName);
             }
-            List<AssetBundleDependency> foundDependencies = new List<AssetBundleDependency>();
+            if (internalDependencyNames.Count == 0)
+            {
+                dependencies = Array.Empty<SerializableAssetBundleLocation>();
+                return;
+            }
+            List<SerializableAssetBundleLocation> foundDependencies = new List<SerializableAssetBundleLocation>();
             foreach (IResourceLocation possibleDependency in possibleDependencies)
             {
                 if (possibleDependency.Data is not AssetBundleRequestOptions assetBundleRequestOptions)
@@ -50,14 +62,13 @@ namespace AssetsOfRain.Editor.VirtualAssets
                     continue;
                 }
                 string internalName = "cab-" + HashingMethods.Calculate<UnityEditor.Build.Pipeline.Utilities.MD4>(Path.ChangeExtension(assetBundleRequestOptions.BundleName, "bundle"));
-                if (internalDependencyNames.Contains(internalName))
+                if (internalDependencyNames.Remove(internalName))
                 {
-                    foundDependencies.Add(new AssetBundleDependency
+                    foundDependencies.Add(new SerializableAssetBundleLocation(possibleDependency));
+                    if (internalDependencyNames.Count == 0)
                     {
-                        primaryKey = possibleDependency.PrimaryKey,
-                        internalId = Path.Combine("{UnityEngine.AddressableAssets.Addressables.RuntimePath}", "StandaloneWindows64", Path.GetFileName(possibleDependency.InternalId)),
-                        data = assetBundleRequestOptions,
-                    });
+                        break;
+                    }
                 }
             }
             dependencies = foundDependencies.ToArray();

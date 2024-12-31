@@ -65,26 +65,35 @@ namespace AssetsOfRain.Editor.Building
 
             ReturnCode PostWriting(IBuildParameters parameters, IDependencyData dependencyData, IWriteData writeData, IBuildResults results)
             {
-                var virtualGroupByKey = aaContext.Settings.groups
-                    .OfType<VirtualAddressableAssetGroup>()
-                    .ToDictionary(x => x.bundleName);
+                Dictionary<string, string> bundleToInternalId = (Dictionary<string, string>)m_BundleToInternalId.GetValue(this);
 
-                HashSet<string> newDependencyEntryKeys = new HashSet<string>();
+                var virtualGroups = aaContext.Settings.groups.OfType<VirtualAddressableAssetGroup>();
+                var virtualGroupByBundleKey = virtualGroups.ToDictionary(x => x.bundleName);
+
+                HashSet<string> virtualDependencyEntryKeys = new HashSet<string>(virtualGroups.Select(x => x.location.primaryKey));
 
                 for (int i = aaContext.locations.Count - 1; i >= 0; i--)
                 {
                     ContentCatalogDataEntry dataEntry = aaContext.locations[i];
                     if (typeof(IAssetBundleResource).IsAssignableFrom(dataEntry.ResourceType))
                     {
-                        if (dataEntry.Keys == null || dataEntry.Keys.FirstOrDefault() is not string primaryKey || !virtualGroupByKey.TryGetValue(primaryKey, out var virtualGroup))
+                        if (dataEntry.Keys == null || dataEntry.Keys.FirstOrDefault() is not string bundleKey || !virtualGroupByBundleKey.TryGetValue(bundleKey, out var virtualGroup))
                         {
                             continue;
                         }
                         pipeline.Log(LogLevel.Information, $"Virtual Group entry: {dataEntry.InternalId}", $"Key\n{dataEntry.Keys[0]}");
-                        dataEntry.Data = virtualGroup.data;
+
+                        dataEntry.Keys.Clear();
+                        dataEntry.Keys.Add(virtualGroup.location.primaryKey);
+
+                        dataEntry.InternalId = virtualGroup.location.internalId;
+                        bundleToInternalId.Add(bundleKey, dataEntry.InternalId);
+
+                        dataEntry.Data = virtualGroup.location.data;
+
                         foreach (var dependency in virtualGroup.dependencies)
                         {
-                            if (newDependencyEntryKeys.Add(dependency.primaryKey))
+                            if (virtualDependencyEntryKeys.Add(dependency.primaryKey))
                             {
                                 aaContext.locations.Add(new ContentCatalogDataEntry(
                                     typeof(IAssetBundleResource),
@@ -101,15 +110,16 @@ namespace AssetsOfRain.Editor.Building
                         {
                             continue;
                         }
-                        HashSet<string> newDependencies = new HashSet<string>();
-                        foreach (var dependency in dataEntry.Dependencies.OfType<string>())
+                        HashSet<string> newDependencyKeys = new HashSet<string>();
+                        for (int j = 0; j < dataEntry.Dependencies.Count; j++)
                         {
-                            if (virtualGroupByKey.TryGetValue(dependency, out var virtualGroup))
+                            if (dataEntry.Dependencies[j] is string dependencyKey && virtualGroupByBundleKey.TryGetValue(dependencyKey, out var virtualGroup))
                             {
-                                newDependencies.UnionWith(virtualGroup.dependencies.Select(x => x.primaryKey));
+                                dataEntry.Dependencies[j] = virtualGroup.location.primaryKey;
+                                newDependencyKeys.UnionWith(virtualGroup.dependencies.Select(x => x.primaryKey));
                             }
                         }
-                        dataEntry.Dependencies.AddRange(newDependencies);
+                        dataEntry.Dependencies.AddRange(newDependencyKeys);
                     }
                 }
                 return ReturnCode.Success;
