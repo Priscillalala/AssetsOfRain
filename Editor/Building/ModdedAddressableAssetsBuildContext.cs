@@ -23,10 +23,10 @@ namespace AssetsOfRain.Editor.Building
 
         public long SerializationIndexFromObjectIdentifier(ObjectIdentifier objectID)
         {
-            if (virtualAssetIdentifiers != null && virtualAssetIdentifiers.TryGetValue(objectID, out long identifier))
+            /*if (virtualAssetIdentifiers != null && virtualAssetIdentifiers.TryGetValue(objectID, out long identifier))
             {
                 return identifier;
-            }
+            }*/
             return deterministicIdentifier.SerializationIndexFromObjectIdentifier(objectID);
         }
     }

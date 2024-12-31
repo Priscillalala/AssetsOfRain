@@ -41,6 +41,7 @@ namespace AssetsOfRain.Editor.Building
                 Addressables.profileSettings.SetValue(Addressables.activeProfileId, Addressables.RemoteCatalogBuildPath.GetName(Addressables), resolvedArtifactPath);
                 Addressables.profileSettings.SetValue(Addressables.activeProfileId, Addressables.RemoteCatalogLoadPath.GetName(Addressables), resolvedLoadPath);
                 Addressables.OverridePlayerVersion = pipeline.Manifest.Identity.Name;
+                Addressables.ContiguousBundles = false;
                 if (!Addressables.DataBuilders.OfType<BuildScriptMod>().Any())
                 {
                     Addressables.AddDataBuilder(AssetDatabase.LoadAssetAtPath<BuildScriptMod>(AssetsOfRain.PACKAGE_ASSETS_DIRECTORY + "/BuildScriptMod.asset"));

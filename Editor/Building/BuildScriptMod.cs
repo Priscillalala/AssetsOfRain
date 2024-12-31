@@ -54,7 +54,7 @@ namespace AssetsOfRain.Editor.Building
                 }
             }
 
-            aaContext = new ModdedAddressableAssetsBuildContext
+            /*aaContext = new ModdedAddressableAssetsBuildContext
             {
                 Settings = aaContext.Settings,
                 runtimeData = aaContext.runtimeData,
@@ -64,7 +64,7 @@ namespace AssetsOfRain.Editor.Building
                 providerTypes = aaContext.providerTypes,
                 assetEntries = aaContext.assetEntries,
                 virtualAssetIdentifiers = virtualAssetIdentifiers,
-            };
+            };*/
 
             List<AssetBundleBuild> allBundleInputDefs = (List<AssetBundleBuild>)m_AllBundleInputDefs.GetValue(this);
             if (allBundleInputDefs != null && allBundleInputDefs.Count > 0)
@@ -204,6 +204,93 @@ namespace AssetsOfRain.Editor.Building
                 {
                     return x is AssetBundleWriteOperation writeOperation && ignoredBundleNames.Contains(writeOperation.Info.bundleName);
                 });*/
+                foreach (var writeOperation in writeData.WriteOperations)
+                {
+                    foreach (var serializeObject in writeOperation.Command.serializeObjects)
+                    {
+                        if (virtualAssetIdentifiers.TryGetValue(serializeObject.serializationObject, out long identifier))
+                        {
+                            serializeObject.serializationIndex = identifier;
+                            writeOperation.ReferenceMap.AddMapping(writeOperation.Command.internalName, identifier, serializeObject.serializationObject, true);
+                        }
+                    }
+                }
+                if (writeData is IBundleWriteData bundleWriteData)
+                {
+                    Dictionary<string, WriteCommand> fileToCommand;
+                    Dictionary<string, HashSet<ObjectIdentifier>> forwardObjectDependencies;
+                    Dictionary<string, HashSet<string>> forwardFileDependencies;
+
+                    // BuildReferenceMap details what objects exist in other bundles that objects in a source bundle depend upon (forward dependencies)
+                    // BuildUsageTagSet details the conditional data needed to be written by objects in a source bundle that is in used by objects in other bundles (reverse dependencies)
+
+                    static void GetOrAdd<TKey, TValue>(IDictionary<TKey, TValue> dictionary, TKey key, out TValue value) where TValue : new()
+                    {
+                        if (dictionary.TryGetValue(key, out value))
+                            return;
+
+                        value = new TValue();
+                        dictionary.Add(key, value);
+                    }
+
+                    fileToCommand = bundleWriteData.WriteOperations.ToDictionary(x => x.Command.internalName, x => x.Command);
+                    forwardObjectDependencies = new Dictionary<string, HashSet<ObjectIdentifier>>();
+                    forwardFileDependencies = new Dictionary<string, HashSet<string>>();
+                    foreach (var pair in bundleWriteData.AssetToFiles)
+                    {
+                        GUID asset = pair.Key;
+                        List<string> files = pair.Value;
+
+                        // The includes for an asset live in the first file, references could live in any file
+                        GetOrAdd(forwardObjectDependencies, files[0], out HashSet<ObjectIdentifier> objectDependencies);
+                        GetOrAdd(forwardFileDependencies, files[0], out HashSet<string> fileDependencies);
+
+                        // Grab the list of object references for the asset or scene and add them to the forward dependencies hash set for this file (write command)
+                        if (dependencyData.AssetInfo.TryGetValue(asset, out AssetLoadInfo assetInfo))
+                            objectDependencies.UnionWith(assetInfo.referencedObjects);
+                        if (dependencyData.SceneInfo.TryGetValue(asset, out SceneDependencyInfo sceneInfo))
+                            objectDependencies.UnionWith(sceneInfo.referencedObjects);
+
+                        // Grab the list of file references for the asset or scene and add them to the forward dependencies hash set for this file (write command)
+                        // While doing so, also add the asset to the reverse dependencies hash set for all the other files it depends upon.
+                        // We already ensure BuildReferenceMap & BuildUsageTagSet contain the objects in this write command in GenerateBundleCommands. So skip over the first file (self)
+                        for (int i = 1; i < files.Count; i++)
+                        {
+                            fileDependencies.Add(files[i]);
+                        }
+                    }
+
+
+                    // Using the previously generated forward dependency maps, update the BuildReferenceMap per WriteCommand to contain just the references that we care about
+
+                    foreach (var operation in bundleWriteData.WriteOperations)
+                    {
+                        var internalName = operation.Command.internalName;
+
+                        BuildReferenceMap referenceMap = bundleWriteData.FileToReferenceMap[internalName];
+                        if (!forwardObjectDependencies.TryGetValue(internalName, out var objectDependencies))
+                            continue; // this bundle has no external dependencies
+                        if (!forwardFileDependencies.TryGetValue(internalName, out var fileDependencies))
+                            continue; // this bundle has no external dependencies
+                        foreach (string file in fileDependencies)
+                        {
+                            WriteCommand dependentCommand = fileToCommand[file];
+                            foreach (var serializeObject in dependentCommand.serializeObjects)
+                            {
+                                // Only add objects we are referencing. This ensures that new/removed objects to files we depend upon will not cause a rebuild
+                                // of this file, unless are referencing the new/removed objects.
+                                if (!objectDependencies.Contains(serializeObject.serializationObject))
+                                    continue;
+
+                                if (virtualAssetIdentifiers.TryGetValue(serializeObject.serializationObject, out long identifier))
+                                {
+                                    pipeline.Log(LogLevel.Information, identifier.ToString());
+                                    referenceMap.AddMapping(file, identifier, serializeObject.serializationObject, true);
+                                }
+                            }
+                        }
+                    }
+                }
                 return ReturnCode.Success;
             }
 
