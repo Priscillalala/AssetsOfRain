@@ -75,10 +75,6 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 return;
             }
             PopulateBundleDependencies(bundleLocation, assetLocation.Dependencies, out var assetToBundleMap);
-            /*AssetBundle assetBundle = Addressables.LoadAssetAsync<IAssetBundleResource>(bundleLocation).WaitForCompletion().GetAssetBundle();
-
-            PopulateBundleDependencies(bundleLocation, assetBundle, assetLocation.Dependencies);
-            var assetToBundleMap = GenerateAssetToBundleMap(assetBundle);*/
 
             AsyncOperationHandle asyncOp = Addressables.ResourceManager.ProvideResource(assetLocation, request.AssetType, true);
             Object asset = (Object)asyncOp.WaitForCompletion();
@@ -87,7 +83,6 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 Debug.LogWarning($"Tried to import asset {request.primaryKey} which does not exist");
                 return;
             }
-
 
             asset = CollectDependenciesRecursive(asset, ctx, new HashSet<int>(), new Dictionary<int, Object>(), assetToBundleMap);
             asset.hideFlags = HideFlags.NotEditable;
@@ -218,17 +213,12 @@ namespace AssetsOfRain.Editor.VirtualAssets
             AssetsManager assetsManager = new AssetsManager();
 
             var bundleFile = assetsManager.LoadBundleFile(Addressables.ResourceManager.TransformInternalId(bundleLocation));
-            Debug.Log($"Bundle file name {bundleFile.name}");
             var assetFile = assetsManager.LoadAssetsFileFromBundle(bundleFile, 0, false);
             string internalBundleName = assetFile.name;
-            Debug.Log($"Assets file name {assetFile.name}");
             
             var assetBundleAsset = assetFile.file.GetAssetsOfType((int)AssetClassID.AssetBundle)[0];
-            //var assetBundleExtAsset = assetsManager.GetExtAsset(assetFile, 0, assetBundleAsset.PathId);
             var assetBundle = assetsManager.GetBaseField(assetFile, assetBundleAsset);
 
-            //string bundleName = assetBundle["m_AssetBundleName"].AsString;
-            //Debug.Log($"Bundle Name: {bundleName}");
             var dependenciesField = assetBundle["m_Dependencies"]["Array"];
             string[] dependencies = dependenciesField.Select(x => x.AsString).ToArray();
 
@@ -274,158 +264,5 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 Debug.LogWarning($"Asset {request.primaryKey} failed to locate the following bundle dependencies: {string.Join(", ", internalDependencyNames)}");
             }
         }
-
-#if false
-        /*public List<IResourceLocation> ReduceBundleDependencyLocations(IResourceLocation mainBundleDependency, IEnumerable<IResourceLocation> possibleDependencies)
-        {
-            List<IResourceLocation> reducedBundleDependencies = new List<IResourceLocation>();
-            if (mainBundleDependency == null)
-            {
-                return reducedBundleDependencies;
-            }
-            reducedBundleDependencies.Add(mainBundleDependency);
-
-            var assetBundleResource = Addressables.LoadAssetAsync<IAssetBundleResource>(mainBundleDependency).WaitForCompletion();
-            using SerializedObject serializedObject = new SerializedObject(assetBundleResource.GetAssetBundle());
-            var m_Dependencies = serializedObject.FindProperty("m_Dependencies");
-            HashSet<string> internalDependencyNames = new HashSet<string>();
-
-            for (int i = 0; i < m_Dependencies.arraySize; i++)
-            {
-                string internalDependencyName = m_Dependencies.GetArrayElementAtIndex(i).stringValue;
-                internalDependencyNames.Add(internalDependencyName);
-            }
-            if (internalDependencyNames.Count == 0)
-            {
-                return reducedBundleDependencies;
-            }
-            using UnityMD4 hashingAlgorithm = UnityMD4.Create();
-            foreach (IResourceLocation possibleDependency in possibleDependencies)
-            {
-                if (possibleDependency.Data is not AssetBundleRequestOptions assetBundleRequestOptions)
-                {
-                    continue;
-                }
-
-                string dependencyBundleName = Path.ChangeExtension(assetBundleRequestOptions.BundleName, "bundle");
-                byte[] dependencyBundleNameHash = hashingAlgorithm.ComputeHash(Encoding.ASCII.GetBytes(dependencyBundleName));
-                string internalName = "cab-" + BitConverter.ToString(dependencyBundleNameHash).Replace("-", "").ToLower();
-                if (internalDependencyNames.Remove(internalName))
-                {
-                    reducedBundleDependencies.Add(possibleDependency);
-                    if (internalDependencyNames.Count == 0)
-                    {
-                        break;
-                    }
-                }
-            }
-            if (internalDependencyNames.Count > 0)
-            {
-                Debug.LogWarning($"Asset {request.primaryKey} failed to locate the following bundle dependencies: {string.Join(", ", internalDependencyNames)} for bundle {mainBundleDependency.PrimaryKey}");
-            }
-            return reducedBundleDependencies;
-        }*/
-
-        public Dictionary<long, string> GenerateAssetToBundleMap(AssetBundle assetBundle)
-        {
-            Dictionary<long, string> assetToBundleMap = new Dictionary<long, string>();
-
-            if (assetBundle == null)
-            {
-                return assetToBundleMap;
-            }
-
-            string internalBundleName = "cab-" + HashingMethods.Calculate<UnityMD4>(assetBundle.name);
-            using SerializedObject serializedAssetBundle = new SerializedObject(assetBundle);
-            var m_Container = serializedAssetBundle.FindProperty("m_Container");
-            for (int i = 0; i < m_Container.arraySize; i++)
-            {
-                var data = m_Container.GetArrayElementAtIndex(i);
-                var asset = m_Container.FindPropertyRelative("second/");
-            }
-            /*var currentProperty = serializedAssetBundle.GetIterator();
-            while (currentProperty.Next(true))
-            {
-                if (currentProperty.propertyType == SerializedPropertyType.String)
-                {
-                    Debug.Log($"{currentProperty.depth} [{currentProperty.name}] Type: {currentProperty.type} Property Type: {currentProperty.propertyType} Value: {currentProperty.stringValue}");
-
-                }
-                else
-                {
-                    Debug.Log($"{currentProperty.depth} [{currentProperty.name}] Type: {currentProperty.type} Property Type: {currentProperty.propertyType}");
-                }
-            }*/
-
-
-            /*var m_PreloadTable = serializedAssetBundle.FindProperty("m_PreloadTable");
-            var m_Dependencies = serializedAssetBundle.FindProperty("m_Dependencies");
-
-            for (int i = 0; i < m_PreloadTable.arraySize; i++)
-            {
-                var preloadData = m_PreloadTable.GetArrayElementAtIndex(i);
-                //Debug.Log($"{preloadData.depth} [{preloadData.name}] Type: {preloadData.type} Property Type: {preloadData.propertyType}");
-
-                var m_FileID = preloadData.FindPropertyRelative("m_FileID");
-                int fileId = m_FileID.intValue;
-
-                var m_PathID = preloadData.FindPropertyRelative("m_PathID");
-                long pathId = m_PathID.longValue;
-
-                Debug.Log($"fileId: {fileId} {m_FileID.intValue} {m_FileID.longValue}, pathId: {pathId} {m_PathID.intValue} {m_PathID.longValue}");
-                //assetToBundleMap.Add(pathId, fileId == 0 ? internalBundleName : m_Dependencies.GetArrayElementAtIndex(fileId - 1).stringValue);
-            }*/
-
-            return assetToBundleMap;
-        }
-
-        public void PopulateBundleDependencies(IResourceLocation bundleLocation, AssetBundle assetBundle, IList<IResourceLocation> possibleDependencies)
-        {
-            if (bundleLocation == null || assetBundle == null)
-            {
-                return;
-            }
-            bundleDependencies.Add(new BundleDependency(bundleLocation));
-
-            var assetBundleResource = Addressables.LoadAssetAsync<IAssetBundleResource>(bundleLocation).WaitForCompletion();
-            using SerializedObject serializedObject = new SerializedObject(assetBundleResource.GetAssetBundle());
-            var m_Dependencies = serializedObject.FindProperty("m_Dependencies");
-            HashSet<string> internalDependencyNames = new HashSet<string>();
-
-            for (int i = 0; i < m_Dependencies.arraySize; i++)
-            {
-                string internalDependencyName = m_Dependencies.GetArrayElementAtIndex(i).stringValue;
-                internalDependencyNames.Add(internalDependencyName);
-            }
-            if (internalDependencyNames.Count == 0)
-            {
-                return;
-            }
-            using UnityMD4 hashingAlgorithm = UnityMD4.Create();
-            foreach (IResourceLocation possibleDependency in possibleDependencies)
-            {
-                if (possibleDependency.Data is not AssetBundleRequestOptions assetBundleRequestOptions)
-                {
-                    continue;
-                }
-
-                string dependencyBundleName = Path.ChangeExtension(assetBundleRequestOptions.BundleName, "bundle");
-                byte[] dependencyBundleNameHash = hashingAlgorithm.ComputeHash(Encoding.ASCII.GetBytes(dependencyBundleName));
-                string internalName = "cab-" + BitConverter.ToString(dependencyBundleNameHash).Replace("-", "").ToLower();
-                if (internalDependencyNames.Remove(internalName))
-                {
-                    bundleDependencies.Add(new BundleDependency(possibleDependency));
-                    if (internalDependencyNames.Count == 0)
-                    {
-                        break;
-                    }
-                }
-            }
-            if (internalDependencyNames.Count > 0)
-            {
-                Debug.LogWarning($"Asset {request.primaryKey} failed to locate the following bundle dependencies: {string.Join(", ", internalDependencyNames)}");
-            }
-        }
-#endif
     }
 }
