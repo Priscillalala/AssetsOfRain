@@ -38,6 +38,117 @@ namespace AssetsOfRain.Editor.Building
         {
             pipeline.Log(LogLevel.Information, "Building a mod with addressables!");
 
+            ReturnCode PostPacking(IBuildParameters parameters, IDependencyData dependencyData, IWriteData writeData)
+            {
+                if (writeData is not IBundleWriteData bundleWriteData)
+                {
+                    return ReturnCode.Error;
+                }
+                Dictionary<ObjectIdentifier, VirtualAddressableAssetImporter.Result> virtualAssets = new Dictionary<ObjectIdentifier, VirtualAddressableAssetImporter.Result>();
+                foreach (var virtualAssetPath in AssetDatabase.FindAssets($"glob:\"*.{VirtualAddressableAssetImporter.EXTENSION}\" a:assets").Select(AssetDatabase.GUIDToAssetPath))
+                {
+                    if (AssetImporter.GetAtPath(virtualAssetPath) is not VirtualAddressableAssetImporter importer || importer.results == null)
+                    {
+                        continue;
+                    }
+                    foreach (var virtualAsset in importer.results)
+                    {
+                        if (ObjectIdentifier.TryGetObjectIdentifier(virtualAsset.asset, out ObjectIdentifier objectId))
+                        {
+                            virtualAssets[objectId] = virtualAsset;
+                        }
+                    }
+                }
+                foreach (var assetBundleWriteOperation in bundleWriteData.WriteOperations.OfType<AssetBundleWriteOperation>())
+                {
+                    foreach (var serializedObject in assetBundleWriteOperation.Command.serializeObjects)
+                    {
+                        if (virtualAssets.TryGetValue(serializedObject.serializationObject, out var virtualAsset))
+                        {
+                            serializedObject.serializationIndex = virtualAsset.identifier;
+                            assetBundleWriteOperation.ReferenceMap.AddMapping(virtualAsset.internalBundleName, virtualAsset.identifier, serializedObject.serializationObject, true);
+                        }
+                    }
+                }
+                return ReturnCode.Success;
+            }
+
+            ReturnCode PostWriting(IBuildParameters parameters, IDependencyData dependencyData, IWriteData writeData, IBuildResults results)
+            {
+                /*Dictionary<string, string> bundleToInternalId = (Dictionary<string, string>)m_BundleToInternalId.GetValue(this);
+
+                var virtualGroups = aaContext.Settings.groups.OfType<VirtualAddressableAssetGroup>();
+                var virtualGroupByBundleKey = virtualGroups.ToDictionary(x => x.bundleName);
+
+                HashSet<string> virtualDependencyEntryKeys = new HashSet<string>(virtualGroups.Select(x => x.location.primaryKey));
+
+                for (int i = aaContext.locations.Count - 1; i >= 0; i--)
+                {
+                    ContentCatalogDataEntry dataEntry = aaContext.locations[i];
+                    if (typeof(IAssetBundleResource).IsAssignableFrom(dataEntry.ResourceType))
+                    {
+                        if (dataEntry.Keys == null || dataEntry.Keys.FirstOrDefault() is not string bundleKey || !virtualGroupByBundleKey.TryGetValue(bundleKey, out var virtualGroup))
+                        {
+                            continue;
+                        }
+                        pipeline.Log(LogLevel.Information, $"Virtual Group entry: {dataEntry.InternalId}", $"Key\n{dataEntry.Keys[0]}");
+
+                        dataEntry.Keys.Clear();
+                        dataEntry.Keys.Add(virtualGroup.location.primaryKey);
+
+                        dataEntry.InternalId = virtualGroup.location.internalId;
+                        bundleToInternalId.Add(bundleKey, dataEntry.InternalId);
+
+                        dataEntry.Data = virtualGroup.location.data;
+
+                        foreach (var dependency in virtualGroup.dependencies)
+                        {
+                            if (virtualDependencyEntryKeys.Add(dependency.primaryKey))
+                            {
+                                aaContext.locations.Add(new ContentCatalogDataEntry(
+                                    typeof(IAssetBundleResource),
+                                    dependency.internalId,
+                                    dataEntry.Provider,
+                                    new[] { dependency.primaryKey },
+                                    extraData: dependency.data));
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (dataEntry.Dependencies == null || dataEntry.Dependencies.Count == 0)
+                        {
+                            continue;
+                        }
+                        HashSet<string> newDependencyKeys = new HashSet<string>();
+                        for (int j = 0; j < dataEntry.Dependencies.Count; j++)
+                        {
+                            if (dataEntry.Dependencies[j] is string dependencyKey && virtualGroupByBundleKey.TryGetValue(dependencyKey, out var virtualGroup))
+                            {
+                                dataEntry.Dependencies[j] = virtualGroup.location.primaryKey;
+                                newDependencyKeys.UnionWith(virtualGroup.dependencies.Select(x => x.primaryKey));
+                            }
+                        }
+                        dataEntry.Dependencies.AddRange(newDependencyKeys);
+                    }
+                }*/
+                return ReturnCode.Success;
+            }
+
+            ContentPipeline.BuildCallbacks.PostPackingCallback = PostPacking;
+            ContentPipeline.BuildCallbacks.PostWritingCallback = PostWriting;
+            pipeline.Log(LogLevel.Information, "Continuing build..");
+            var buildResult = base.DoBuild<TResult>(builderInput, aaContext);
+            ContentPipeline.BuildCallbacks.PostPackingCallback = null;
+            ContentPipeline.BuildCallbacks.PostWritingCallback = null;
+            return buildResult;
+        }
+
+#if false
+        protected override TResult DoBuild<TResult>(AddressablesDataBuilderInput builderInput, AddressableAssetsBuildContext aaContext)
+        {
+            pipeline.Log(LogLevel.Information, "Building a mod with addressables!");
+
             List<AssetBundleBuild> allBundleInputDefs = (List<AssetBundleBuild>)m_AllBundleInputDefs.GetValue(this);
             if (allBundleInputDefs != null && allBundleInputDefs.Count > 0)
             {
@@ -264,5 +375,6 @@ namespace AssetsOfRain.Editor.Building
             ContentPipeline.BuildCallbacks.PostPackingCallback = null;
             return buildResult;
         }
+#endif
     }
 }
