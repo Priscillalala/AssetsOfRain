@@ -20,6 +20,8 @@ using UnityMD4 = UnityEditor.Build.Pipeline.Utilities.MD4;
 using UnityEditor.Build.Pipeline.Utilities;
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
+using UnityEditor.Build.Pipeline;
+using UnityEditor.Build.Utilities;
 
 namespace AssetsOfRain.Editor.VirtualAssets
 {
@@ -214,10 +216,13 @@ namespace AssetsOfRain.Editor.VirtualAssets
 
             var bundleFile = assetsManager.LoadBundleFile(Addressables.ResourceManager.TransformInternalId(bundleLocation));
             var assetFile = assetsManager.LoadAssetsFileFromBundle(bundleFile, 0, false);
-            string internalBundleName = assetFile.name;
-            
+            string internalBundleName = string.Format(CommonStrings.AssetBundleNameFormat, assetFile.name);
+            Debug.Log($"internalBundleName: {internalBundleName}");
+            var externals = assetFile.file.Metadata.Externals;
             var assetBundleAsset = assetFile.file.GetAssetsOfType((int)AssetClassID.AssetBundle)[0];
             var assetBundle = assetsManager.GetBaseField(assetFile, assetBundleAsset);
+            //Debug.Log($"internalBundleName from md5: {new Unity5PackedIdentifiers().GenerateInternalFileName(assetBundle["m_AssetBundleName"].AsString)}");
+            //string internalBundleName = new Unity5PackedIdentifiers().GenerateInternalFileName(assetBundle["m_AssetBundleName"].AsString);
 
             var dependenciesField = assetBundle["m_Dependencies"]["Array"];
             string[] dependencies = dependenciesField.Select(x => x.AsString).ToArray();
@@ -228,7 +233,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 int fileID = data["m_FileID"].AsInt;
                 long pathID = data["m_PathID"].AsLong;
                 Debug.Log($"fileId: {fileID}, pathId: {pathID}");
-                assetToBundleMap[pathID] = fileID == 0 ? internalBundleName : dependencies[fileID - 1];
+                assetToBundleMap[pathID] = fileID == 0 ? internalBundleName : externals[fileID - 1].OriginalPathName;
             }
 
             assetsManager.UnloadAll(true);

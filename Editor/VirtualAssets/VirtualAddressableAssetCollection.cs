@@ -67,7 +67,6 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 return;
             }
             importer.request = assetRequest;
-            importer.hideFlags = HideFlags.NotEditable;
             EditorUtility.SetDirty(importer);
             importer.SaveAndReimport();
 

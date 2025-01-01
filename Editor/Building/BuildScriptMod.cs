@@ -12,6 +12,7 @@ using UnityEditor.Build.Content;
 using UnityEditor.Build.Pipeline;
 using UnityEditor.Build.Pipeline.Interfaces;
 using UnityEditor.Build.Pipeline.WriteTypes;
+using UnityEditor.Build.Utilities;
 using UnityEditor.VersionControl;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -38,29 +39,33 @@ namespace AssetsOfRain.Editor.Building
         {
             pipeline.Log(LogLevel.Information, "Building a mod with addressables!");
 
+            var virtualAssets = new Dictionary<ObjectIdentifier, VirtualAddressableAssetImporter.Result>();
+            var virtualAssetDependencies = new Dictionary<string, List<VirtualAddressableAssetImporter.BundleDependency>>();
+            foreach (var virtualAssetPath in AssetDatabase.FindAssets($"glob:\"*.{VirtualAddressableAssetImporter.EXTENSION}\" a:assets").Select(AssetDatabase.GUIDToAssetPath))
+            {
+                if (AssetImporter.GetAtPath(virtualAssetPath) is not VirtualAddressableAssetImporter importer || importer.results == null)
+                {
+                    continue;
+                }
+                foreach (var virtualAsset in importer.results)
+                {
+                    if (ObjectIdentifier.TryGetObjectIdentifier(virtualAsset.asset, out ObjectIdentifier objectId))
+                    {
+                        virtualAssets[objectId] = virtualAsset;
+                    }
+                }
+                virtualAssetDependencies[virtualAssetPath] = importer.bundleDependencies;
+            }
+
             ReturnCode PostPacking(IBuildParameters parameters, IDependencyData dependencyData, IWriteData writeData)
             {
                 if (writeData is not IBundleWriteData bundleWriteData)
                 {
                     return ReturnCode.Error;
                 }
-                Dictionary<ObjectIdentifier, VirtualAddressableAssetImporter.Result> virtualAssets = new Dictionary<ObjectIdentifier, VirtualAddressableAssetImporter.Result>();
-                foreach (var virtualAssetPath in AssetDatabase.FindAssets($"glob:\"*.{VirtualAddressableAssetImporter.EXTENSION}\" a:assets").Select(AssetDatabase.GUIDToAssetPath))
-                {
-                    if (AssetImporter.GetAtPath(virtualAssetPath) is not VirtualAddressableAssetImporter importer || importer.results == null)
-                    {
-                        continue;
-                    }
-                    foreach (var virtualAsset in importer.results)
-                    {
-                        if (ObjectIdentifier.TryGetObjectIdentifier(virtualAsset.asset, out ObjectIdentifier objectId))
-                        {
-                            virtualAssets[objectId] = virtualAsset;
-                        }
-                    }
-                }
                 foreach (var assetBundleWriteOperation in bundleWriteData.WriteOperations.OfType<AssetBundleWriteOperation>())
                 {
+                    pipeline.Log(LogLevel.Information, $"Write command internal name", $"Internal Name\n{assetBundleWriteOperation.Command.internalName}");
                     foreach (var serializedObject in assetBundleWriteOperation.Command.serializeObjects)
                     {
                         if (virtualAssets.TryGetValue(serializedObject.serializationObject, out var virtualAsset))
@@ -75,6 +80,55 @@ namespace AssetsOfRain.Editor.Building
 
             ReturnCode PostWriting(IBuildParameters parameters, IDependencyData dependencyData, IWriteData writeData, IBuildResults results)
             {
+                if (writeData is not IBundleWriteData bundleWriteData)
+                {
+                    return ReturnCode.Error;
+                }
+
+                Dictionary<string, AssetLoadInfo> assetInfoByAddress = dependencyData.AssetInfo.Values.ToDictionary(x => x.address);
+                var addedBundleDependencyKeys = new HashSet<string>();
+                for (int i = aaContext.locations.Count - 1; i >= 0; i--)
+                {
+                    ContentCatalogDataEntry location = aaContext.locations[i];
+                    if (typeof(IAssetBundleResource).IsAssignableFrom(location.ResourceType))
+                    {
+                        continue;
+                    }
+                    if (!assetInfoByAddress.TryGetValue(location.InternalId, out var assetInfo) || assetInfo.referencedObjects == null || assetInfo.referencedObjects.Count == 0)
+                    {
+                        continue;
+                    }
+                    HashSet<string> newDependencyKeys = new HashSet<string>();
+                    foreach (var dependencyPath in assetInfo.referencedObjects.Select(x => AssetDatabase.GUIDToAssetPath(x.guid)).Distinct())
+                    {
+                        if (!virtualAssetDependencies.TryGetValue(dependencyPath, out var bundleDependencies))
+                        {
+                            continue;
+                        }
+                        foreach (var bundleDependency in bundleDependencies)
+                        {
+                            if (!newDependencyKeys.Add(bundleDependency.primaryKey) || !addedBundleDependencyKeys.Add(bundleDependency.primaryKey))
+                            {
+                                continue;
+                            }
+                            aaContext.locations.Add(new ContentCatalogDataEntry(
+                                type: typeof(IAssetBundleResource),
+                                internalId: bundleDependency.internalId,
+                                provider: bundleDependency.providerId,
+                                keys: new[] { bundleDependency.primaryKey },
+                                extraData: bundleDependency.data));
+                        }
+                    }
+                    location.Dependencies.AddRange(newDependencyKeys);
+                }
+                /*foreach (var assetBundleWriteOperation in bundleWriteData.WriteOperations.OfType<AssetBundleWriteOperation>())
+                {
+                    foreach (var bundleAsset in assetBundleWriteOperation.Info.bundleAssets)
+                    {
+                        Debug.Log($"Bundle Asset: {}");
+                        bundleAsset.referencedObjects;
+                    }
+                }*/
                 /*Dictionary<string, string> bundleToInternalId = (Dictionary<string, string>)m_BundleToInternalId.GetValue(this);
 
                 var virtualGroups = aaContext.Settings.groups.OfType<VirtualAddressableAssetGroup>();
