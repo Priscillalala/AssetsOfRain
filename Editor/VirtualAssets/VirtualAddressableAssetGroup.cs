@@ -22,12 +22,14 @@ namespace AssetsOfRain.Editor.VirtualAssets
         {
             public string primaryKey;
             public string internalId;
+            public string providerId;
             public AssetBundleRequestOptions data;
 
             public SerializableAssetBundleLocation(IResourceLocation bundleLocation)
             {
                 primaryKey = bundleLocation.PrimaryKey;
                 internalId = Path.Combine("{UnityEngine.AddressableAssets.Addressables.RuntimePath}", "StandaloneWindows64", Path.GetFileName(bundleLocation.InternalId));
+                providerId = bundleLocation.ProviderId;
                 data = (AssetBundleRequestOptions)bundleLocation.Data;
             }
         }

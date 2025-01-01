@@ -67,9 +67,11 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 return;
             }
             importer.request = assetRequest;
+            importer.hideFlags = HideFlags.NotEditable;
             EditorUtility.SetDirty(importer);
             importer.SaveAndReimport();
 
+            return;
             IResourceLocation assetLocation = assetRequest.AssetLocation;
             IResourceLocation bundleLocation = assetLocation.Dependencies.FirstOrDefault(x => x.Data is AssetBundleRequestOptions);
             if (bundleLocation == null)

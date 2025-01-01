@@ -223,6 +223,35 @@ namespace AssetsOfRain.Editor.Building
                             }
                         }
                     }
+                    foreach (var virtualAsset in virtualAssetIdentifiers.Keys)
+                    {
+                        bundleWriteData.AssetToFiles.Remove(virtualAsset.guid);
+                    }
+                    foreach (var fileToObjects in bundleWriteData.FileToObjects)
+                    {
+                        pipeline.Log(LogLevel.Information, $"Removed {fileToObjects.Value.RemoveAll(virtualAssetIdentifiers.ContainsKey)} assets");
+                    }
+                    foreach (var writeOperation in bundleWriteData.WriteOperations)
+                    {
+                        if (aaContext.Settings.groups.OfType<VirtualAddressableAssetGroup>().Any(x => x.bundleName == writeOperation.Command.fileName))
+                        {
+                        }
+                        if (writeOperation is AssetBundleWriteOperation assetBundleWriteOperation)
+                        {
+                            if (assetBundleWriteOperation.Info.bundleAssets.RemoveAll(x => x.includedObjects.Any(virtualAssetIdentifiers.ContainsKey)) > 0)
+                            {
+                                assetBundleWriteOperation.UsageSet = new BuildUsageTagSet();
+                                assetBundleWriteOperation.ReferenceMap = new BuildReferenceMap();
+                            }
+                        }
+                        writeOperation.Command.serializeObjects.RemoveAll(x => virtualAssetIdentifiers.ContainsKey(x.serializationObject));
+                    }
+                    /*bundleWriteData.FileToReferenceMap.Clear();
+                    bundleWriteData.FileToObjects.Clear();
+                    bundleWriteData.FileToBundle.Clear();
+                    bundleWriteData.AssetToFiles.Clear();
+                    bundleWriteData.FileToUsageSet.Clear();
+                    bundleWriteData.WriteOperations.Clear();*/
                 }
                 return ReturnCode.Success;
             }
