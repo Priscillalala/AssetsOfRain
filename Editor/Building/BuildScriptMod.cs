@@ -1,5 +1,5 @@
-﻿using AssetsOfRain.Editor.Materials;
-using AssetsOfRain.Editor.VirtualAssets;
+﻿using AssetsOfRain.Editor.VirtualAssets;
+using AssetsOfRain.Editor.VirtualAssets.VirtualShaders;
 using System;
 using System.Collections.Generic;
 using System.Linq;
