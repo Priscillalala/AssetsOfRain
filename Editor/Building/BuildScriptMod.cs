@@ -40,6 +40,7 @@ namespace AssetsOfRain.Editor.Building
             pipeline.Log(LogLevel.Information, "Building a mod with addressables!");
 
             var virtualAssets = new Dictionary<ObjectIdentifier, VirtualAddressableAssetImporter.Result>();
+            var virtualAssetGuids = new HashSet<GUID>();
             var virtualAssetDependencies = new Dictionary<string, List<VirtualAddressableAssetImporter.BundleDependency>>();
             foreach (var virtualAssetPath in AssetDatabase.FindAssets($"glob:\"*.{VirtualAddressableAssetImporter.EXTENSION}\" a:assets").Select(AssetDatabase.GUIDToAssetPath))
             {
@@ -52,6 +53,7 @@ namespace AssetsOfRain.Editor.Building
                     if (ObjectIdentifier.TryGetObjectIdentifier(virtualAsset.asset, out ObjectIdentifier objectId))
                     {
                         virtualAssets[objectId] = virtualAsset;
+                        virtualAssetGuids.Add(objectId.guid);
                     }
                 }
                 virtualAssetDependencies[virtualAssetPath] = importer.bundleDependencies;
@@ -59,38 +61,39 @@ namespace AssetsOfRain.Editor.Building
 
             ReturnCode PostPacking(IBuildParameters parameters, IDependencyData dependencyData, IWriteData writeData)
             {
-                if (writeData is not IBundleWriteData bundleWriteData)
+                foreach (var assetBundleWriteOperation in writeData.WriteOperations.OfType<AssetBundleWriteOperation>())
                 {
-                    return ReturnCode.Error;
-                }
-                foreach (var assetBundleWriteOperation in bundleWriteData.WriteOperations.OfType<AssetBundleWriteOperation>())
-                {
-                    pipeline.Log(LogLevel.Information, $"Write command internal name", $"Internal Name\n{assetBundleWriteOperation.Command.internalName}");
-                    foreach (var serializedObject in assetBundleWriteOperation.Command.serializeObjects)
+                    var bundleAssets = assetBundleWriteOperation.Info.bundleAssets;
+                    for (int i = bundleAssets.Count - 1; i >= 0; i--)
                     {
-                        if (virtualAssets.TryGetValue(serializedObject.serializationObject, out var virtualAsset))
+                        AssetLoadInfo assetLoadInfo = bundleAssets[i];
+                        if (virtualAssetGuids.Contains(assetLoadInfo.asset))
                         {
-                            serializedObject.serializationIndex = virtualAsset.identifier;
-                            assetBundleWriteOperation.ReferenceMap.AddMapping(virtualAsset.internalBundleName, virtualAsset.identifier, serializedObject.serializationObject, true);
+                            bundleAssets.RemoveAt(i);
+                            continue;
+                        }
+                        foreach (var referencedObject in assetLoadInfo.referencedObjects)
+                        {
+                            if (virtualAssets.TryGetValue(referencedObject, out var virtualAsset))
+                            {
+                                assetBundleWriteOperation.ReferenceMap.AddMapping(virtualAsset.internalBundleName, virtualAsset.identifier, referencedObject, true);
+                            }
                         }
                     }
+                    assetBundleWriteOperation.Command.serializeObjects.RemoveAll(x => virtualAssets.ContainsKey(x.serializationObject));
                 }
                 return ReturnCode.Success;
             }
 
             ReturnCode PostWriting(IBuildParameters parameters, IDependencyData dependencyData, IWriteData writeData, IBuildResults results)
             {
-                if (writeData is not IBundleWriteData bundleWriteData)
-                {
-                    return ReturnCode.Error;
-                }
                 int originalLocationCount = aaContext.locations.Count;
-                var bundleToNewBundleDependencies = new Dictionary<string, HashSet<string>>();
-                var allNewBundleDependencies = new HashSet<string>();
+                var bundleDependencyKeysMap = new Dictionary<string, HashSet<string>>();
+                var allBundleDependencyKeys = new HashSet<string>();
 
-                foreach (var assetBundleWriteOperation in bundleWriteData.WriteOperations.OfType<AssetBundleWriteOperation>())
+                foreach (var assetBundleWriteOperation in writeData.WriteOperations.OfType<AssetBundleWriteOperation>())
                 {
-                    HashSet<string> newBundleDependencies = new HashSet<string>();
+                    HashSet<string> bundleDependencyKeys = new HashSet<string>();
 
                     var bundleDependencies = assetBundleWriteOperation.Info.bundleAssets
                         .SelectMany(x => x.referencedObjects)
@@ -101,7 +104,7 @@ namespace AssetsOfRain.Editor.Building
 
                     foreach (var bundleDependency in bundleDependencies)
                     {
-                        if (newBundleDependencies.Add(bundleDependency.primaryKey) && allNewBundleDependencies.Add(bundleDependency.primaryKey))
+                        if (bundleDependencyKeys.Add(bundleDependency.primaryKey) && allBundleDependencyKeys.Add(bundleDependency.primaryKey))
                         {
                             aaContext.locations.Add(new ContentCatalogDataEntry(
                                 type: typeof(IAssetBundleResource),
@@ -111,9 +114,9 @@ namespace AssetsOfRain.Editor.Building
                                 extraData: bundleDependency.data));
                         }
                     }
-                    if (newBundleDependencies.Count > 0)
+                    if (bundleDependencyKeys.Count > 0)
                     {
-                        bundleToNewBundleDependencies.Add(assetBundleWriteOperation.Info.bundleName, newBundleDependencies);
+                        bundleDependencyKeysMap.Add(assetBundleWriteOperation.Info.bundleName, bundleDependencyKeys);
                     }
                 }
                 for (int i = 0; i < originalLocationCount; i++)
@@ -125,17 +128,9 @@ namespace AssetsOfRain.Editor.Building
                     }
                     location.Dependencies.AddRange(location.Dependencies
                         .OfType<string>()
-                        .Where(bundleToNewBundleDependencies.ContainsKey)
-                        .SelectMany(x => bundleToNewBundleDependencies[x])
+                        .Where(bundleDependencyKeysMap.ContainsKey)
+                        .SelectMany(x => bundleDependencyKeysMap[x])
                         .Distinct());
-                    /*HashSet<string> newLocationDependencies = new HashSet<string>();
-                    foreach (var dependency in location.Dependencies.OfType<string>())
-                    {
-                        if (bundleToNewBundleDependencies.TryGetValue(dependency, out var newBundleDependencies))
-                        {
-                            newLocationDependencies.UnionWith(newBundleDependencies);
-                        }
-                    }*/
                 }
 #if false
                 Dictionary<string, AssetLoadInfo> assetInfoByAddress = dependencyData.AssetInfo.Values.ToDictionary(x => x.address);
