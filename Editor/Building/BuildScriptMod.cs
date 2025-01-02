@@ -84,9 +84,61 @@ namespace AssetsOfRain.Editor.Building
                 {
                     return ReturnCode.Error;
                 }
+                int originalLocationCount = aaContext.locations.Count;
+                var bundleToNewBundleDependencies = new Dictionary<string, HashSet<string>>();
+                var allNewBundleDependencies = new HashSet<string>();
 
+                foreach (var assetBundleWriteOperation in bundleWriteData.WriteOperations.OfType<AssetBundleWriteOperation>())
+                {
+                    HashSet<string> newBundleDependencies = new HashSet<string>();
+
+                    var bundleDependencies = assetBundleWriteOperation.Info.bundleAssets
+                        .SelectMany(x => x.referencedObjects)
+                        .Select(x => AssetDatabase.GUIDToAssetPath(x.guid))
+                        .Distinct()
+                        .Where(virtualAssetDependencies.ContainsKey)
+                        .SelectMany(x => virtualAssetDependencies[x]);
+
+                    foreach (var bundleDependency in bundleDependencies)
+                    {
+                        if (newBundleDependencies.Add(bundleDependency.primaryKey) && allNewBundleDependencies.Add(bundleDependency.primaryKey))
+                        {
+                            aaContext.locations.Add(new ContentCatalogDataEntry(
+                                type: typeof(IAssetBundleResource),
+                                internalId: bundleDependency.internalId,
+                                provider: bundleDependency.providerId,
+                                keys: new[] { bundleDependency.primaryKey },
+                                extraData: bundleDependency.data));
+                        }
+                    }
+                    if (newBundleDependencies.Count > 0)
+                    {
+                        bundleToNewBundleDependencies.Add(assetBundleWriteOperation.Info.bundleName, newBundleDependencies);
+                    }
+                }
+                for (int i = 0; i < originalLocationCount; i++)
+                {
+                    ContentCatalogDataEntry location = aaContext.locations[i];
+                    if (typeof(IAssetBundleResource).IsAssignableFrom(location.ResourceType) || location.Dependencies == null)
+                    {
+                        continue;
+                    }
+                    location.Dependencies.AddRange(location.Dependencies
+                        .OfType<string>()
+                        .Where(bundleToNewBundleDependencies.ContainsKey)
+                        .SelectMany(x => bundleToNewBundleDependencies[x])
+                        .Distinct());
+                    /*HashSet<string> newLocationDependencies = new HashSet<string>();
+                    foreach (var dependency in location.Dependencies.OfType<string>())
+                    {
+                        if (bundleToNewBundleDependencies.TryGetValue(dependency, out var newBundleDependencies))
+                        {
+                            newLocationDependencies.UnionWith(newBundleDependencies);
+                        }
+                    }*/
+                }
+#if false
                 Dictionary<string, AssetLoadInfo> assetInfoByAddress = dependencyData.AssetInfo.Values.ToDictionary(x => x.address);
-                var addedBundleDependencyKeys = new HashSet<string>();
                 for (int i = aaContext.locations.Count - 1; i >= 0; i--)
                 {
                     ContentCatalogDataEntry location = aaContext.locations[i];
@@ -107,7 +159,7 @@ namespace AssetsOfRain.Editor.Building
                         }
                         foreach (var bundleDependency in bundleDependencies)
                         {
-                            if (!newDependencyKeys.Add(bundleDependency.primaryKey) || !addedBundleDependencyKeys.Add(bundleDependency.primaryKey))
+                            if (!newDependencyKeys.Add(bundleDependency.primaryKey) || !allNewBundleDependencies.Add(bundleDependency.primaryKey))
                             {
                                 continue;
                             }
@@ -121,6 +173,7 @@ namespace AssetsOfRain.Editor.Building
                     }
                     location.Dependencies.AddRange(newDependencyKeys);
                 }
+#endif
                 /*foreach (var assetBundleWriteOperation in bundleWriteData.WriteOperations.OfType<AssetBundleWriteOperation>())
                 {
                     foreach (var bundleAsset in assetBundleWriteOperation.Info.bundleAssets)
