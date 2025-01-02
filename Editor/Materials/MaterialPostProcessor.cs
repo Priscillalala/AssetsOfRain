@@ -11,7 +11,7 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.ResourceManagement.ResourceLocations;
 using UnityEngine.ResourceManagement.ResourceProviders;
 
-namespace AssetsOfRain.Editor.Materials
+namespace AssetsOfRain.Editor.VirtualAssets.VirtualShaders
 {
     public class MaterialPostProcessor : AssetPostprocessor
     {
@@ -69,13 +69,13 @@ namespace AssetsOfRain.Editor.Materials
                 int instanceId = material.GetInstanceID();
                 if (material.shader && material.shader.isSupported)
                 {
-                    MaterialDataStorage.instance.materialToPersistentShader[instanceId] = material.shader;
+                    VirtualShaderDataStorage.instance.materialToShaderAsset[instanceId] = material.shader;
                     return AssetDatabase.GetAssetPath(material.shader);
                 }
-                else if (MaterialDataStorage.instance.materialToPersistentShader.TryGetValue(instanceId, out Shader persistentShader))
+                else if (VirtualShaderDataStorage.instance.materialToShaderAsset.TryGetValue(instanceId, out Shader shaderAsset))
                 {
-                    Debug.LogWarning($"Found persistent shader for {material.name}: shader is {persistentShader.name}");
-                    return AssetDatabase.GetAssetPath(persistentShader);
+                    Debug.LogWarning($"Found persistent shader for {material.name}: shader is {shaderAsset.name}");
+                    return AssetDatabase.GetAssetPath(shaderAsset);
                 }
                 return null;
             }
@@ -123,9 +123,17 @@ namespace AssetsOfRain.Editor.Materials
             }
             if (wasSaved)
             {
-                Debug.Log($"Setting material {material.name} to use shader {importer.request.primaryKey} temporarily");
-                MaterialDataStorage.instance.materialToPersistentShader[material.GetInstanceID()] = shader;
-                material.shader = Addressables.LoadAssetAsync<Shader>(importer.request.AssetLocation).WaitForCompletion();
+                VirtualShaderDataStorage.instance.materialToShaderAsset[material.GetInstanceID()] = shader;
+                var loadShaderOp = Addressables.LoadAssetAsync<Shader>(importer.request.AssetLocation);
+                loadShaderOp.Completed += handle =>
+                {
+                    Shader shader = handle.Result;
+                    if (material)
+                    {
+                        Debug.Log($"Setting material {material.name} to use shader {importer.request.primaryKey} temporarily");
+                        material.shader = shader;
+                    }
+                };
             }
             else
             {

@@ -12,7 +12,7 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.ResourceManagement.ResourceLocations;
 using UnityEngine.ResourceManagement.ResourceProviders;
 
-namespace AssetsOfRain.Editor.Materials
+namespace AssetsOfRain.Editor.VirtualAssets.VirtualShaders
 {
     public class MaterialSaveProcessor : AssetModificationProcessor
     {

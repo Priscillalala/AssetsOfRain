@@ -69,7 +69,19 @@ namespace AssetsOfRain.Editor.Building
 
             ReturnCode PostScripts(IBuildParameters parameters, IBuildResults results)
             {
-                MaterialDataStorage.instance.ApplyPersistentShaders();
+                foreach (var pair in VirtualShaderDataStorage.instance.materialToShaderAsset)
+                {
+                    if (EditorUtility.InstanceIDToObject(pair.Key) is not Material material || !string.IsNullOrEmpty(AssetDatabase.GetAssetPath(material.shader)))
+                    {
+                        continue;
+                    }
+                    Shader shaderAsset = pair.Value;
+                    if (shaderAsset == null || !shaderAsset.isSupported)
+                    {
+                        continue;
+                    }
+                    material.shader = shaderAsset;
+                }
                 return ReturnCode.Success;
             }
 
