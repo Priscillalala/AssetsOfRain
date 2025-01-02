@@ -22,8 +22,6 @@ namespace AssetsOfRain.Editor.Building
     [RequiresManifestDatumType(typeof(AddressablesDefinition))]
     public class StageAddressables : PipelineJob
     {
-        private static readonly FieldInfo m_GUID = typeof(AddressableAssetGroup).GetField("m_GUID", BindingFlags.Instance | BindingFlags.NonPublic);
-
         public AddressableAssetSettings Addressables => AddressableAssetSettingsDefaultObject.Settings;
 
         [PathReferenceResolver]
@@ -43,7 +41,6 @@ namespace AssetsOfRain.Editor.Building
                 Addressables.profileSettings.SetValue(Addressables.activeProfileId, Addressables.RemoteCatalogLoadPath.GetName(Addressables), resolvedLoadPath);
                 Addressables.OverridePlayerVersion = pipeline.Manifest.Identity.Name;
                 Addressables.ContiguousBundles = false;
-                Addressables.MonoScriptBundleNaming = MonoScriptBundleNaming.ProjectName;
                 if (!Addressables.DataBuilders.OfType<BuildScriptMod>().Any())
                 {
                     Addressables.AddDataBuilder(AssetDatabase.LoadAssetAtPath<BuildScriptMod>(AssetsOfRain.PACKAGE_ASSETS_DIRECTORY + "/BuildScriptMod.asset"));

@@ -10,14 +10,14 @@ namespace AssetsOfRain.Editor.Materials
         public readonly Dictionary<int, Shader> materialToPersistentShader = new Dictionary<int, Shader>();
 
         [SerializeField]
-        private List<Material> serializedMaterialIds = new List<Material>();
+        private List<Material> serializedMaterials = new List<Material>();
         [SerializeField]
         private List<Shader> serializedPersistentShaders = new List<Shader>();
 
         public void OnBeforeSerialize()
         {
-            serializedMaterialIds.Clear();
-            serializedMaterialIds.AddRange(materialToPersistentShader.Keys.Select(EditorUtility.InstanceIDToObject).Cast<Material>());
+            serializedMaterials.Clear();
+            serializedMaterials.AddRange(materialToPersistentShader.Keys.Select(EditorUtility.InstanceIDToObject).Cast<Material>());
             serializedPersistentShaders.Clear();
             serializedPersistentShaders.AddRange(materialToPersistentShader.Values);
         }
@@ -25,9 +25,26 @@ namespace AssetsOfRain.Editor.Materials
         public void OnAfterDeserialize()
         {
             materialToPersistentShader.Clear();
-            for (int i = 0; i < serializedMaterialIds.Count; i++)
+            for (int i = 0; i < serializedMaterials.Count; i++)
             {
-                materialToPersistentShader.Add(serializedMaterialIds[i].GetInstanceID(), serializedPersistentShaders[i]);
+                materialToPersistentShader.Add(serializedMaterials[i].GetInstanceID(), serializedPersistentShaders[i]);
+            }
+        }
+
+        public void ApplyPersistentShaders()
+        {
+            foreach (var pair in materialToPersistentShader)
+            {
+                if (EditorUtility.InstanceIDToObject(pair.Key) is not Material material || !string.IsNullOrEmpty(AssetDatabase.GetAssetPath(material.shader)))
+                {
+                    continue;
+                }
+                Shader persistentShader = pair.Value;
+                if (persistentShader == null || !persistentShader.isSupported)
+                {
+                    continue;
+                }
+                material.shader = persistentShader;
             }
         }
     }

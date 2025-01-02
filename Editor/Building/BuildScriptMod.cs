@@ -1,4 +1,5 @@
-﻿using AssetsOfRain.Editor.VirtualAssets;
+﻿using AssetsOfRain.Editor.Materials;
+using AssetsOfRain.Editor.VirtualAssets;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -57,12 +58,20 @@ namespace AssetsOfRain.Editor.Building
                 virtualAssetDependencies[virtualAssetPath] = importer.bundleDependencies;
             }
 
-            ContentPipeline.BuildCallbacks.PostPackingCallback = PostPacking;
-            ContentPipeline.BuildCallbacks.PostWritingCallback = PostWriting;
+            ContentPipeline.BuildCallbacks.PostScriptsCallbacks += PostScripts;
+            ContentPipeline.BuildCallbacks.PostPackingCallback += PostPacking;
+            ContentPipeline.BuildCallbacks.PostWritingCallback += PostWriting;
             var result = base.DoBuild<TResult>(builderInput, aaContext);
-            ContentPipeline.BuildCallbacks.PostPackingCallback = null;
-            ContentPipeline.BuildCallbacks.PostWritingCallback = null;
+            ContentPipeline.BuildCallbacks.PostScriptsCallbacks -= PostScripts;
+            ContentPipeline.BuildCallbacks.PostPackingCallback -= PostPacking;
+            ContentPipeline.BuildCallbacks.PostWritingCallback -= PostWriting;
             return result;
+
+            ReturnCode PostScripts(IBuildParameters parameters, IBuildResults results)
+            {
+                MaterialDataStorage.instance.ApplyPersistentShaders();
+                return ReturnCode.Success;
+            }
 
             ReturnCode PostPacking(IBuildParameters parameters, IDependencyData dependencyData, IWriteData writeData)
             {
