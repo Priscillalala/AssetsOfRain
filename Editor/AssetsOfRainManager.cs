@@ -35,12 +35,11 @@ namespace AssetsOfRain.Editor
 
         public static bool TryGetInstance(out AssetsOfRainManager manager)
         {
-            manager = instance;
-            if (!manager)
+            if (!instance)
             {
-                manager = AssetDatabase.LoadAssetAtPath<AssetsOfRainManager>(MANAGER_FILE_PATH);
+                instance = AssetDatabase.LoadAssetAtPath<AssetsOfRainManager>(MANAGER_FILE_PATH);
             }
-            return manager != null;
+            return (manager = instance) != null;
         }
 
         public static AssetsOfRainManager GetInstance()
@@ -71,13 +70,13 @@ namespace AssetsOfRain.Editor
                 {
                     continue;
                 }
-                // temp
-                if (shaderLocation.PrimaryKey != "RoR2/Base/Shaders/HGStandard.shader" && shaderLocation.PrimaryKey != "RoR2/Base/Shaders/HGCloudRemap.shader")
+                Shader shader = Addressables.LoadAssetAsync<Shader>(shaderLocation).WaitForCompletion();
+                if (!shader || ignoredShaderDirectories.Any(x => shader.name.StartsWith(x)))
                 {
                     continue;
                 }
-                Shader shader = Addressables.LoadAssetAsync<Shader>(shaderLocation).WaitForCompletion();
-                if (!shader || ignoredShaderDirectories.Any(x => shader.name.StartsWith(x)))
+                string shaderAssetPath = AssetDatabase.GetAssetPath(Shader.Find(shader.name));
+                if (!string.IsNullOrEmpty(shaderAssetPath) && !shaderAssetPath.StartsWith(VIRTUAL_SHADERS_DIRECTORY))
                 {
                     continue;
                 }
