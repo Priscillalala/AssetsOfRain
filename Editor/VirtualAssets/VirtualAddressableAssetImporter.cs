@@ -25,9 +25,13 @@ using UnityEditor.Build.Utilities;
 
 namespace AssetsOfRain.Editor.VirtualAssets
 {
+    // The secret sauce
+    // Generated .virtualaa files are empty. This importer stores serialized info like the request and results in
+    // the corresponding .virtualaa.meta file, and the virtual assets are stored somewhere in Unity's temp files
     [ScriptedImporter(0, EXTENSION)]
     public class VirtualAddressableAssetImporter : ScriptedImporter
     {
+        // Used to map virtual assets to runtime assets
         [Serializable]
         public struct Result
         {
@@ -36,6 +40,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
             public string internalBundleName;
         }
 
+        // Represents an existing assetbundle resource location
         [Serializable]
         public struct BundleDependency
         {
@@ -86,23 +91,31 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 return;
             }
 
-            asset = CollectDependenciesRecursive(asset, ctx, new HashSet<int>(), new Dictionary<int, Object>(), assetToBundleMap);
-            asset.hideFlags = HideFlags.NotEditable;
-            ctx.SetMainObject(asset);
+            asset = CollectAssetsRecursive(asset, ctx, new HashSet<int>(), new Dictionary<int, Object>(), assetToBundleMap);
+            if (results.Count > 0)
+            {
+                asset.hideFlags = HideFlags.NotEditable;
+                ctx.SetMainObject(asset);
+            }
+            else
+            {
+                Debug.LogWarning($"Virtual asset importer {ctx.assetPath} generated no assets");
+            }
         }
 
-        public Object CollectDependenciesRecursive(Object asset, AssetImportContext ctx, HashSet<int> objectsInHierarchy, Dictionary<int, Object> assetRepresentations, Dictionary<long, string> assetToBundleMap)
+        public Object CollectAssetsRecursive(Object asset, AssetImportContext ctx, HashSet<int> objectsInHierarchy, Dictionary<int, Object> assetRepresentations, Dictionary<long, string> assetToBundleMap)
         {
-            Debug.Log($"Visited asset {asset.name} ({asset.GetType().Name})");
             int assetInstanceId = asset.GetInstanceID();
             if (objectsInHierarchy.Contains(assetInstanceId))
             {
+                // This is a component or child gameobject whos parent has already been instantiated, it doesn't need a new representation
                 assetRepresentations[assetInstanceId] = asset;
             }
             else
             {
+                // The localId of loaded addressable assets matches their pathId in the assetbundle
                 AssetDatabase.TryGetGUIDAndLocalFileIdentifier(asset, out _, out long localId);
-                Object assetRepresentation = GetAssetRepresentation(asset, ctx, out bool newRepresentation, out bool recurseDependencies);
+                Object assetRepresentation = GetAssetRepresentation(asset, ctx, out bool newRepresentation);
                 assetRepresentations[assetInstanceId] = assetRepresentation;
                 assetRepresentations[assetRepresentation.GetInstanceID()] = assetRepresentation;
                 if (!newRepresentation)
@@ -111,7 +124,6 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 }
                 asset = assetRepresentation;
                 objectsInHierarchy.UnionWith(EditorUtility.CollectDeepHierarchy(new[] { asset }).Select(x => x.GetInstanceID()));
-                Debug.Log($"Include Asset {asset.name} ({asset.GetType().Name})");
                 ctx.AddObjectToAsset(localId.ToString(), asset);
                 results.Add(new Result
                 {
@@ -119,10 +131,6 @@ namespace AssetsOfRain.Editor.VirtualAssets
                     identifier = localId,
                     internalBundleName = assetToBundleMap[localId]
                 });
-                if (!recurseDependencies)
-                {
-                    return asset;
-                }
             }
 
             using SerializedObject serializedAsset = new SerializedObject(asset);
@@ -134,11 +142,9 @@ namespace AssetsOfRain.Editor.VirtualAssets
                     continue;
                 }
 
-                //Debug.Log($"{currentProperty.depth} [{currentProperty.name}] Type: {currentProperty.type} Property Type: {currentProperty.propertyType}");
-
                 if (!assetRepresentations.TryGetValue(currentProperty.objectReferenceInstanceIDValue, out Object propertyAsset))
                 {
-                    propertyAsset = CollectDependenciesRecursive(currentProperty.objectReferenceValue, ctx, objectsInHierarchy, assetRepresentations, assetToBundleMap);
+                    propertyAsset = CollectAssetsRecursive(currentProperty.objectReferenceValue, ctx, objectsInHierarchy, assetRepresentations, assetToBundleMap);
                 }
 
                 currentProperty.objectReferenceValue = propertyAsset;
@@ -148,11 +154,12 @@ namespace AssetsOfRain.Editor.VirtualAssets
             return asset;
         }
 
-        public static Object GetAssetRepresentation(Object asset, AssetImportContext ctx, out bool newRepresentation, out bool recurseDependencies)
+        // Get a mutable instance of the loaded asset that will play nice in the project
+        // For shaders, attempts to return an existing virtual shader asset already in the project
+        public static Object GetAssetRepresentation(Object asset, AssetImportContext ctx, out bool newRepresentation)
         {
             string name = asset.name;
             newRepresentation = true;
-            recurseDependencies = true;
             switch (asset)
             {
                 case Shader:
@@ -160,12 +167,10 @@ namespace AssetsOfRain.Editor.VirtualAssets
                     if (shader && AssetDatabase.GetAssetPath(shader) != ctx.assetPath)
                     {
                         newRepresentation = false;
-                        Debug.LogWarning($"Found existing shader representation for asset {asset.name}");
                         return shader;
                     }
                     else
                     {
-                        //recurseDependencies = false;
                         asset = Instantiate(asset);
                     }
                     break;
@@ -175,10 +180,11 @@ namespace AssetsOfRain.Editor.VirtualAssets
                     break;
                 case GameObject:
                     asset = Instantiate(asset);
+                    // Prevents this instantiation from dirtying the current scene
                     asset.hideFlags |= HideFlags.DontSave;
                     GameObject prefabAsset = (GameObject)asset;
                     var componentGroups = prefabAsset.GetComponentsInChildren<MonoBehaviour>(true).GroupBy(x => x.GetType());
-                    var tempPrefabAsset = EditorUtility.CreateGameObjectWithHideFlags(name, HideFlags.HideAndDontSave);
+                    GameObject tempPrefabAsset = EditorUtility.CreateGameObjectWithHideFlags(name, HideFlags.HideAndDontSave);
                     tempPrefabAsset.SetActive(false);
                     foreach (var componentGroup in componentGroups)
                     {
@@ -201,46 +207,50 @@ namespace AssetsOfRain.Editor.VirtualAssets
                     break;
             }
 
-            Debug.LogWarning($"Created new asset representation for asset {name}");
             asset.name = name;
             asset.hideFlags = HideFlags.NotEditable | HideFlags.HideInHierarchy;
 
             return asset;
         }
 
+        // The addressable asset dependency lists are innaccurate, so we narrow it down to the genuine dependencies of the asset's assetbundle
+        // We also use the assetbundle's preload table to map every asset we might encounter during asset collection to an asset bundle
         public void PopulateBundleDependencies(IResourceLocation bundleLocation, IList<IResourceLocation> possibleDependencies, out Dictionary<long, string> assetToBundleMap)
         {
+            const string ASSETBUNDLE_PRELOADTABLE_PROPERTY = "m_PreloadTable";
+            const string ASSETBUNDLE_DEPENDENCIES_PROPERTY = "m_Dependencies";
+            const string ARRAY_PROPERTY = "Array";
+            const string FILE_ID_PROPERTY = "m_FileID";
+            const string PATH_ID_PROPERTY = "m_PathID";
+
             assetToBundleMap = new Dictionary<long, string>();
 
             AssetsManager assetsManager = new AssetsManager();
 
             var bundleFile = assetsManager.LoadBundleFile(Addressables.ResourceManager.TransformInternalId(bundleLocation));
             var assetFile = assetsManager.LoadAssetsFileFromBundle(bundleFile, 0, false);
+
             string internalBundleName = string.Format(CommonStrings.AssetBundleNameFormat, assetFile.name);
-            Debug.Log($"internalBundleName: {internalBundleName}");
+            // externals map FileIDs to asset bundles
             var externals = assetFile.file.Metadata.Externals;
             var assetBundleAsset = assetFile.file.GetAssetsOfType((int)AssetClassID.AssetBundle)[0];
             var assetBundle = assetsManager.GetBaseField(assetFile, assetBundleAsset);
-            //Debug.Log($"internalBundleName from md5: {new Unity5PackedIdentifiers().GenerateInternalFileName(assetBundle["m_AssetBundleName"].AsString)}");
-            //string internalBundleName = new Unity5PackedIdentifiers().GenerateInternalFileName(assetBundle["m_AssetBundleName"].AsString);
 
-            var dependenciesField = assetBundle["m_Dependencies"]["Array"];
-            string[] dependencies = dependenciesField.Select(x => x.AsString).ToArray();
-
-            var preloadTableField = assetBundle["m_PreloadTable"]["Array"];
+            var preloadTableField = assetBundle[ASSETBUNDLE_PRELOADTABLE_PROPERTY][ARRAY_PROPERTY];
             foreach (var data in preloadTableField)
             {
-                int fileID = data["m_FileID"].AsInt;
-                long pathID = data["m_PathID"].AsLong;
-                Debug.Log($"fileId: {fileID}, pathId: {pathID}");
+                int fileID = data[FILE_ID_PROPERTY].AsInt;
+                long pathID = data[PATH_ID_PROPERTY].AsLong;
                 assetToBundleMap[pathID] = fileID == 0 ? internalBundleName : externals[fileID - 1].OriginalPathName;
             }
+
+            var dependenciesField = assetBundle[ASSETBUNDLE_DEPENDENCIES_PROPERTY][ARRAY_PROPERTY];
+            HashSet<string> internalDependencyNames = new HashSet<string>(dependenciesField.Select(x => x.AsString));
 
             assetsManager.UnloadAll(true);
 
             bundleDependencies.Add(new BundleDependency(bundleLocation));
 
-            HashSet<string> internalDependencyNames = new HashSet<string>(dependencies);
             if (internalDependencyNames.Count == 0)
             {
                 return;
@@ -252,6 +262,8 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 {
                     continue;
                 }
+                // Reimplementing the standard IDeterministicIdentifiers.GenerateInternalFileName implementation to
+                // run faster in large batches
                 string dependencyBundleName = Path.ChangeExtension(assetBundleRequestOptions.BundleName, "bundle");
                 byte[] dependencyBundleNameHash = hashingAlgorithm.ComputeHash(Encoding.ASCII.GetBytes(dependencyBundleName));
                 string internalName = "cab-" + BitConverter.ToString(dependencyBundleNameHash).Replace("-", "").ToLower();

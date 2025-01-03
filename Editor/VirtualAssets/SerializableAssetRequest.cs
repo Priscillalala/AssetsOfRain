@@ -1,7 +1,5 @@
-﻿using AssetsOfRain.Editor.Util;
-using System;
+﻿using System;
 using System.Linq;
-using UnityEditor;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.ResourceLocations;
 
@@ -13,9 +11,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
         public string primaryKey;
         public string assemblyQualifiedTypeName;
 
-        //private string cachedPrimaryKey;
         private IResourceLocation cachedAssetLocation;
-        //private string cachedAssemblyQualifiedTypeName;
         private Type cachedAssetType;
 
         public Type AssetType

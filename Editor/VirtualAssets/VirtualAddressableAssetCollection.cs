@@ -1,18 +1,10 @@
-﻿using UnityEditor.AddressableAssets.Settings;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.ResourceManagement.ResourceLocations;
-using UnityEngine.ResourceManagement.ResourceProviders;
-using System.Linq;
-using UnityEditor.AddressableAssets;
-using UnityEditor.AddressableAssets.Settings.GroupSchemas;
 using Object = UnityEngine.Object;
-using System.Reflection;
-using UnityEngine.ResourceManagement.Util;
-using AssetsOfRain.Editor.Building;
 
 namespace AssetsOfRain.Editor.VirtualAssets
 {
@@ -41,8 +33,6 @@ namespace AssetsOfRain.Editor.VirtualAssets
 
         public void ImportVirtualAsset(SerializableAssetRequest assetRequest)
         {
-            Debug.Log($"ImportVirtualAsset: {assetRequest.primaryKey}");
-
             if (!assetRequests.Contains(assetRequest))
             {
                 assetRequests.Add(assetRequest);
