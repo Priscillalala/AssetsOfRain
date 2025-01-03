@@ -23,10 +23,9 @@ namespace AssetsOfRain.Editor
         const string MANAGER_FILE_PATH = AssetsOfRain.DATA_DIRECTORY + "/AssetsOfRainManager.asset";
         const string VIRTUAL_ASSETS_DIRECTORY = AssetsOfRain.DATA_DIRECTORY + "/VirtualAssets";
         const string VIRTUAL_SHADERS_DIRECTORY = AssetsOfRain.DATA_DIRECTORY + "/VirtualShaders";
-        const string GROUPS_DIRECTORY = AssetsOfRain.DATA_DIRECTORY + "/Groups";
 
-        public VirtualAddressableAssetCollection virtualShaders = new VirtualAddressableAssetCollection(VIRTUAL_SHADERS_DIRECTORY, GROUPS_DIRECTORY);
-        public VirtualAddressableAssetCollection virtualAssets = new VirtualAddressableAssetCollection(VIRTUAL_ASSETS_DIRECTORY, GROUPS_DIRECTORY);
+        public VirtualAddressableAssetCollection virtualShaders = new VirtualAddressableAssetCollection(VIRTUAL_SHADERS_DIRECTORY);
+        public VirtualAddressableAssetCollection virtualAssets = new VirtualAddressableAssetCollection(VIRTUAL_ASSETS_DIRECTORY);
         public string[] ignoredShaderDirectories = new[]
         {
             "Hopoo Games/Optimized/Switch/",
@@ -109,7 +108,6 @@ namespace AssetsOfRain.Editor
         public void RefreshVirtualAssets()
         {
             Debug.Log("Refreshing all assets..");
-            AssetDatabase.DeleteAsset(GROUPS_DIRECTORY);
             RefreshVirtualShaders();
 
             var assetRequests = virtualAssets.GetAssetRequests();
@@ -131,7 +129,6 @@ namespace AssetsOfRain.Editor
 
         public void DeleteVirtualAssets()
         {
-            AssetDatabase.DeleteAsset(GROUPS_DIRECTORY);
             AssetDatabase.DeleteAsset(VIRTUAL_ASSETS_DIRECTORY);
             AssetDatabase.DeleteAsset(VIRTUAL_SHADERS_DIRECTORY);
         }
