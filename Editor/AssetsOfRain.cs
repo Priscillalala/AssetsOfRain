@@ -1,7 +1,9 @@
 ﻿using ThunderKit.Addressable.Config;
 using UnityEditor;
 using UnityEngine;
+#if TK_ADDRESSABLE
 using AddressableBrowserPlus = AssetsOfRain.Editor.Browser.AddressableBrowser;
+#endif
 
 namespace AssetsOfRain.Editor
 {
