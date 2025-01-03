@@ -1,5 +1,5 @@
 # Assets of Rain
-Assets of Rain loads addressable assets from Risk of Rain 2 into the unity editor as assets which can be referenced by mods. Modded content is built as a new addressables catalog, and references to game assets in the editor resolve to the real assets at runtime.
+Assets of Rain loads addressable assets from Risk of Rain 2 into the unity editor as assets which can be referenced by mods. Modded content is built as a secondary addressables catalog, and references to game assets in the editor resolve to the real assets at runtime.
 
 Assets of Rain works entirely in the editor; no runtime package is required.
 
