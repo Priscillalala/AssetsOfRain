@@ -1,40 +1,25 @@
 ﻿using AssetsOfRain.Editor.VirtualAssets;
 using AssetsOfRain.Editor.VirtualAssets.VirtualShaders;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using ThunderKit.Core.Pipelines;
 using UnityEditor;
 using UnityEditor.AddressableAssets.Build;
 using UnityEditor.AddressableAssets.Build.DataBuilders;
-using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.Build.Content;
 using UnityEditor.Build.Pipeline;
 using UnityEditor.Build.Pipeline.Interfaces;
 using UnityEditor.Build.Pipeline.WriteTypes;
-using UnityEditor.Build.Utilities;
-using UnityEditor.VersionControl;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
 using UnityEngine.AddressableAssets.ResourceLocators;
 using UnityEngine.ResourceManagement.ResourceProviders;
-using UnityEngine.ResourceManagement.Util;
-using LogLevel = ThunderKit.Core.Pipelines.LogLevel;
 
 namespace AssetsOfRain.Editor.Building
 {
+    // A version of the default build script that can handle virtual assets
     [CreateAssetMenu(fileName = "BuildScriptMod.asset", menuName = "Addressables/Content Builders/Build Modded Content")]
     public class BuildScriptMod : BuildScriptPackedMode
     {
-        private static readonly FieldInfo m_AllBundleInputDefs = typeof(BuildScriptPackedMode).GetField("m_AllBundleInputDefs", BindingFlags.Instance | BindingFlags.NonPublic);
-        private static readonly FieldInfo m_OutputAssetBundleNames = typeof(BuildScriptPackedMode).GetField("m_OutputAssetBundleNames", BindingFlags.Instance | BindingFlags.NonPublic);
-        private static readonly FieldInfo m_BundleToInternalId = typeof(BuildScriptPackedMode).GetField("m_BundleToInternalId", BindingFlags.Instance | BindingFlags.NonPublic);
-        private static readonly FieldInfo m_ResourceProviderData = typeof(BuildScriptPackedMode).GetField("m_ResourceProviderData", BindingFlags.Instance | BindingFlags.NonPublic);
-
         public override string Name => "Build Modded Content";
-
-        public static Pipeline pipeline;
 
         protected override TResult DoBuild<TResult>(AddressablesDataBuilderInput builderInput, AddressableAssetsBuildContext aaContext)
         {
@@ -67,6 +52,8 @@ namespace AssetsOfRain.Editor.Building
             ContentPipeline.BuildCallbacks.PostWritingCallback -= PostWriting;
             return result;
 
+            // Assets are evaluated after scripts so this is a good place to prepare our materials for building
+            // Materials that are referencing loaded addressable shaders need to be given valid shader assets to build against
             ReturnCode PostScripts(IBuildParameters parameters, IBuildResults results)
             {
                 foreach (var pair in VirtualShaderDataStorage.instance.materialToShaderAsset)
@@ -85,6 +72,7 @@ namespace AssetsOfRain.Editor.Building
                 return ReturnCode.Success;
             }
 
+            // Before any assetbundles are created, edit the write data so our virtual assets resolve to actual assets at runtime
             ReturnCode PostPacking(IBuildParameters parameters, IDependencyData dependencyData, IWriteData writeData)
             {
                 foreach (var assetBundleWriteOperation in writeData.WriteOperations.OfType<AssetBundleWriteOperation>())
@@ -102,18 +90,25 @@ namespace AssetsOfRain.Editor.Building
                         {
                             if (virtualAssets.TryGetValue(referencedObject, out var virtualAsset))
                             {
+                                // Tell our bundle where to find this virtual asset at runtime
+                                // If the virtual asset was included in this bundle, it will also be removed
                                 assetBundleWriteOperation.ReferenceMap.AddMapping(virtualAsset.internalBundleName, virtualAsset.identifier, referencedObject, true);
                             }
                         }
                     }
+                    // Might be unnecessary but it doesn't hurt
                     assetBundleWriteOperation.Command.serializeObjects.RemoveAll(x => virtualAssets.ContainsKey(x.serializationObject));
                 }
                 return ReturnCode.Success;
             }
 
+            // The initial addressable locations list is generated during writing, but the catalog is
+            // generated after the build, so this is the perfect place to inject new locations
             ReturnCode PostWriting(IBuildParameters parameters, IDependencyData dependencyData, IWriteData writeData, IBuildResults results)
             {
                 int originalLocationCount = aaContext.locations.Count;
+                // Addressable dependencies are calculated per-bundle rather than per-asset, so we
+                // map existing bundle keys to additional bundle dependencies from virtual assets
                 var bundleDependencyKeysMap = new Dictionary<string, HashSet<string>>();
                 var allBundleDependencyKeys = new HashSet<string>();
 
@@ -152,6 +147,7 @@ namespace AssetsOfRain.Editor.Building
                     {
                         continue;
                     }
+                    // If the asset depended on the existing bundle, it should inherit the additional bundle dependencies
                     location.Dependencies.AddRange(location.Dependencies
                         .OfType<string>()
                         .Where(bundleDependencyKeysMap.ContainsKey)

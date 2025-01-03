@@ -1,19 +1,15 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.IO;
 using System.Linq;
-using UnityEngine;
-using UnityEditor;
-using System.IO;
-using UnityEditor.AddressableAssets.Settings;
-using ThunderKit.Core.Pipelines;
+using System.Reflection;
 using System.Threading.Tasks;
-using UnityEditor.AddressableAssets;
 using ThunderKit.Core.Attributes;
 using ThunderKit.Core.Paths;
+using ThunderKit.Core.Pipelines;
+using UnityEditor;
+using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Build.DataBuilders;
-using System.Reflection;
-using System;
-using UnityEditor.AddressableAssets.Build;
+using UnityEditor.AddressableAssets.Settings;
+using UnityEngine;
 
 namespace AssetsOfRain.Editor.Building
 {
@@ -26,7 +22,9 @@ namespace AssetsOfRain.Editor.Building
 
         [PathReferenceResolver]
         public string BuildArtifactPath = "<AddressablesStaging>";
+        [Tooltip("Addressables will usually compile scripts before every build. This bloats build times with seemingly no benefit")]
         public bool compileScripts = false;
+        [Tooltip("Addressables generates a hash file to quickly compare catalog versions, but this file is not relevent for mods")]
         public bool clearHashFile = true;
 
         public override Task Execute(Pipeline pipeline)
@@ -40,16 +38,14 @@ namespace AssetsOfRain.Editor.Building
                 Addressables.profileSettings.SetValue(Addressables.activeProfileId, Addressables.RemoteCatalogBuildPath.GetName(Addressables), resolvedArtifactPath);
                 Addressables.profileSettings.SetValue(Addressables.activeProfileId, Addressables.RemoteCatalogLoadPath.GetName(Addressables), resolvedLoadPath);
                 Addressables.OverridePlayerVersion = pipeline.Manifest.Identity.Name;
+                // ContiguousBundles was causing problems with resolving virtual asset references
                 Addressables.ContiguousBundles = false;
                 if (!Addressables.DataBuilders.OfType<BuildScriptMod>().Any())
                 {
                     Addressables.AddDataBuilder(AssetDatabase.LoadAssetAtPath<BuildScriptMod>(AssetsOfRain.PACKAGE_ASSETS_DIRECTORY + "/Addressables/BuildScriptMod.asset"));
                 }
                 Addressables.ActivePlayerDataBuilderIndex = Addressables.DataBuilders.FindIndex(s => s is BuildScriptMod);
-                BuildScriptMod.pipeline = pipeline;
 
-                //Addressables.ActivePlayerDataBuilderIndex = Addressables.DataBuilders.FindIndex(s => s.GetType() == typeof(BuildScriptRoR2));
-                //((BuildScriptRoR2)Addressables.ActivePlayerDataBuilder).SetAssetTypeLabels(definition.assetTypeLabels, definition.componentTypeLabels);
                 void BuildAddressables()
                 {
                     AddressableAssetSettings.BuildPlayerContent(out var result);
@@ -59,10 +55,10 @@ namespace AssetsOfRain.Editor.Building
                     }
                     else
                     {
-                        throw new System.Exception($"Error while building Addressables: {result.Error}");
-                        pipeline.Log(LogLevel.Error, $"Error while building Addressables: {result.Error}", $"Error while building Addressables: {result.Error}");
+                        pipeline.Log(LogLevel.Error, $"Error while building Addressables: {result.Error}", $"Build Error\n{result.Error}");
                     }
                 }
+
                 if (compileScripts)
                 {
                     BuildAddressables();
@@ -74,14 +70,13 @@ namespace AssetsOfRain.Editor.Building
                     BuildAddressables();
                     s_SkipCompilePlayerScripts.SetValue(null, false);
                 }
+
                 if (clearHashFile)
                 {
                     string hashPath = Path.Combine(resolvedArtifactPath, $"catalog_{Addressables.OverridePlayerVersion}.hash");
-                    if (File.Exists(hashPath))
-                    {
-                        File.Delete(hashPath);
-                    }
+                    File.Delete(hashPath);
                 }
+
                 foreach (string stagingPath in definition.StagingPaths)
                 {
                     string resolvedStagingPath = stagingPath.Resolve(pipeline, this);
