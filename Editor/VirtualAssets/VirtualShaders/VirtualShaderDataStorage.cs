@@ -5,6 +5,8 @@ using UnityEngine;
 
 namespace AssetsOfRain.Editor.VirtualAssets.VirtualShaders
 {
+    // Remember which virtual shader asset a material references through domain reloads, so
+    // we can re-load the appropriate addressable shader after
     public class VirtualShaderDataStorage : ScriptableSingleton<VirtualShaderDataStorage>, ISerializationCallbackReceiver
     {
         public readonly Dictionary<int, Shader> materialToShaderAsset = new Dictionary<int, Shader>();

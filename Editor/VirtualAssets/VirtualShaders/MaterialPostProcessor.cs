@@ -1,18 +1,11 @@
-using AssetsOfRain.Editor.VirtualAssets;
-using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using UnityEditor;
-using UnityEditor.AddressableAssets;
-using UnityEditor.AddressableAssets.Settings;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
-using UnityEngine.ResourceManagement.ResourceLocations;
-using UnityEngine.ResourceManagement.ResourceProviders;
 
 namespace AssetsOfRain.Editor.VirtualAssets.VirtualShaders
 {
+    // When materials reference a virtual shader asset, upgrade them to a loaded addressable shader that will display correctly
     public class MaterialPostProcessor : AssetPostprocessor
     {
         static MaterialPostProcessor()
@@ -23,7 +16,6 @@ namespace AssetsOfRain.Editor.VirtualAssets.VirtualShaders
 
         private static void OnChangesPublished(ref ObjectChangeEventStream stream)
         {
-            Debug.Log($"OnChangesPublished ({stream.length}) changes");
             for (int i = 0; i < stream.length; i++)
             {
                 switch (stream.GetEventType(i))
@@ -50,31 +42,29 @@ namespace AssetsOfRain.Editor.VirtualAssets.VirtualShaders
         {
             foreach (Material material in importedAssets.SelectMany(x => AssetDatabase.LoadAllAssetsAtPath(x).OfType<Material>()))
             {
-                Debug.Log($"OnPostprocessAllAssets: imported material {material.name}");
                 OnMaterialPropertiesChanged(material, true);
             }
             if (didDomainReload)
             {
+                // Without this delay, changes were failing to apply to virtual materials
                 EditorApplication.delayCall += UpdateAfterDomainReload;
             }
         }
 
         public static void UpdateAfterDomainReload()
         {
-            Debug.Log("OnPostprocessAllAssets: reloading shaders");
-
             static string ResolvePersistentShaderPath(Material material)
             {
-                bool validShader = material.shader && material.shader.isSupported;
                 int instanceId = material.GetInstanceID();
                 if (material.shader && material.shader.isSupported)
                 {
+                    // When the project is first loaded, materials will reference valid virtual shader assets
                     VirtualShaderDataStorage.instance.materialToShaderAsset[instanceId] = material.shader;
                     return AssetDatabase.GetAssetPath(material.shader);
                 }
                 else if (VirtualShaderDataStorage.instance.materialToShaderAsset.TryGetValue(instanceId, out Shader shaderAsset))
                 {
-                    Debug.LogWarning($"Found persistent shader for {material.name}: shader is {shaderAsset.name}");
+                    // After domain reloads, we need to use the virtual shader asset references we saved
                     return AssetDatabase.GetAssetPath(shaderAsset);
                 }
                 return null;
@@ -101,7 +91,6 @@ namespace AssetsOfRain.Editor.VirtualAssets.VirtualShaders
                     {
                         if (material)
                         {
-                            Debug.Log($"OnPostprocessAllAssets set {material.name} shader");
                             material.shader = shader;
                         }
                     }
@@ -128,16 +117,16 @@ namespace AssetsOfRain.Editor.VirtualAssets.VirtualShaders
                 loadShaderOp.Completed += handle =>
                 {
                     Shader shader = handle.Result;
-                    if (material)
+                    if (material && shader)
                     {
-                        Debug.Log($"Setting material {material.name} to use shader {importer.request.primaryKey} temporarily");
                         material.shader = shader;
                     }
                 };
             }
             else
             {
-                Debug.Log($"saving material {material.name} to reimport");
+                // This will trigger a reimport and invoke OnMaterialPropertiesChanged again
+                // The asset on disk needs to be saved with a reference to the virtual shader asset before we re-assign the material's shader
                 AssetDatabase.SaveAssetIfDirty(material);
             }
         }
