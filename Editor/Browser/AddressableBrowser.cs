@@ -1,31 +1,20 @@
 #if TK_ADDRESSABLE
+using AssetsOfRain.Editor.VirtualAssets;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
-using ThunderKit.Common;
-using ThunderKit.Core.Windows;
-using UnityEditor;
-using UnityEngine;
-using UnityEngine.AddressableAssets;
-using UnityEngine.AddressableAssets.ResourceLocators;
-using UnityEngine.ResourceManagement.ResourceProviders;
-using UnityEngine.ResourceManagement.ResourceLocations;
-using UnityEditor.SceneManagement;
-using UnityEngine.SceneManagement;
-using UnityEditor.Experimental.SceneManagement;
-using UnityEngine.Rendering;
-using UnityEngine.UIElements;
-using Object = UnityEngine.Object;
 using ThunderKit.Addressable.Tools;
-using AddressableBrowserPlus = AssetsOfRain.Editor.Browser.AddressableBrowser;
-using AssetsOfRain.Editor.VirtualAssets;
+using UnityEditor;
 using UnityEditor.UIElements;
+using UnityEngine;
+using UnityEngine.ResourceManagement.ResourceLocations;
+using UnityEngine.ResourceManagement.ResourceProviders;
+using UnityEngine.UIElements;
 
 namespace AssetsOfRain.Editor.Browser
 {
+    // Same name as the TK class so we can reuse the style sheet
     public class AddressableBrowser : ThunderKit.Addressable.Tools.AddressableBrowser
     {
         [Flags]
@@ -38,7 +27,7 @@ namespace AssetsOfRain.Editor.Browser
             UseRegex = 1 << 3,
             InProject = 1 << 4,
             Available = 1 << 5,
-            NewOptions = InProject | Available,
+            ExtendedFlags = InProject | Available,
         }
 
         public enum AssetStatus
@@ -83,9 +72,9 @@ namespace AssetsOfRain.Editor.Browser
             base.OnDisable();
         }
 
+        // Called after InitializeBrowser
         public void ModifyBrowser(object sender = null, EventArgs e = null)
         {
-            Debug.Log("Modify browser");
             ListView directoryContent = GetDirectoryContent();
 
             directoryContent.bindItem = (Action<VisualElement, int>)Delegate.Combine(directoryContent.bindItem, new Action<VisualElement, int>(ModifyAsset));
@@ -102,6 +91,7 @@ namespace AssetsOfRain.Editor.Browser
             RefreshAdditionalOptions(BrowserOptionsExtended.None, (BrowserOptionsExtended)browserOptions);
         }
 
+        // Called after BindAsset
         public void ModifyAsset(VisualElement element, int i)
         {
             ListView directoryContent = GetDirectoryContent();
@@ -206,11 +196,10 @@ namespace AssetsOfRain.Editor.Browser
         public void RefreshAdditionalOptions(BrowserOptionsExtended previousValue, BrowserOptionsExtended newValue)
         {
             BrowserOptionsExtended deltaValue = previousValue ^ newValue;
-            if ((deltaValue & BrowserOptionsExtended.NewOptions) == BrowserOptionsExtended.None)
+            if ((deltaValue & BrowserOptionsExtended.ExtendedFlags) == BrowserOptionsExtended.None)
             {
                 return;
             }
-            Debug.Log($"Options changed");
             bool inProject = (newValue & BrowserOptionsExtended.InProject) > BrowserOptionsExtended.None;
             bool available = (newValue & BrowserOptionsExtended.Available) > BrowserOptionsExtended.None;
             if (!inProject && !available)
@@ -244,6 +233,7 @@ namespace AssetsOfRain.Editor.Browser
                 };
             }
 
+            // Attempt to re-select the current selection to refresh the content list
             IResourceLocation g = GetDirectory().selectedItems.OfType<IResourceLocation>().FirstOrDefault();
             if (g != null)
             {
