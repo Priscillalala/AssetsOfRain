@@ -51,6 +51,7 @@ namespace AssetsOfRain.Editor
             }
             instance = CreateInstance<AssetsOfRainManager>();
             instance.name = Path.GetFileNameWithoutExtension(MANAGER_FILE_PATH);
+            instance.RefreshVirtualShaders();
             Directory.CreateDirectory(AssetsOfRain.DATA_DIRECTORY);
             AssetDatabase.CreateAsset(instance, MANAGER_FILE_PATH);
             return instance;
@@ -91,7 +92,7 @@ namespace AssetsOfRain.Editor
 
             foreach (var previousShaderRequest in previousShaderRequests)
             {
-                if (!newShaderRequests.Contains(previousShaderRequest) && !virtualShaders.TryMoveVirtualAsset(previousShaderRequest, validShaderLocations))
+                if (!newShaderRequests.Contains(previousShaderRequest) && !virtualShaders.TryMoveVirtualAsset(previousShaderRequest, validShaderLocations, out _))
                 {
                     virtualShaders.DeleteVirtualAsset(previousShaderRequest);
                 }
@@ -117,9 +118,14 @@ namespace AssetsOfRain.Editor
                 if (!virtualAssets.VirtualAssetExists(assetRequest))
                 {
                     var allowedAssetLocations = Addressables.ResourceLocators.SelectMany(x => x.AllLocationsOfType(assetRequest.AssetType));
-                    if (!virtualAssets.TryMoveVirtualAsset(assetRequest, allowedAssetLocations))
+                    if (virtualAssets.TryMoveVirtualAsset(assetRequest, allowedAssetLocations, out var newAssetRequest))
                     {
-                        virtualAssets.DeleteVirtualAsset(assetRequest);
+                        Debug.LogWarning($"Asset {assetRequest.primaryKey} was moved to {newAssetRequest.primaryKey}");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"Asset {assetRequest.primaryKey} is no longer available!");
+                        virtualAssets.DeleteVirtualAsset(assetRequest, false);
                     }
                 }
             }

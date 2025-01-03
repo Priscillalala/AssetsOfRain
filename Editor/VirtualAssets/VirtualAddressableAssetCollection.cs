@@ -64,14 +64,17 @@ namespace AssetsOfRain.Editor.VirtualAssets
             importer.SaveAndReimport();
         }
 
-        public void DeleteVirtualAsset(SerializableAssetRequest assetRequest)
+        public void DeleteVirtualAsset(SerializableAssetRequest assetRequest, bool forgetRequest = true)
         {
-            assetRequests.Remove(assetRequest);
+            if (forgetRequest)
+            {
+                assetRequests.Remove(assetRequest);
+            }
             string virtualAssetPath = GetVirtualAssetPath(assetRequest);
             AssetDatabase.DeleteAsset(virtualAssetPath);
         }
 
-        public bool TryMoveVirtualAsset(SerializableAssetRequest assetRequest, IEnumerable<IResourceLocation> allowedAssetLocations)
+        public bool TryMoveVirtualAsset(SerializableAssetRequest assetRequest, IEnumerable<IResourceLocation> allowedAssetLocations, out SerializableAssetRequest newAssetRequest)
         {
             foreach (var assetLocation in allowedAssetLocations)
             {
@@ -79,7 +82,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 {
                     continue;
                 }
-                SerializableAssetRequest newAssetRequest = new SerializableAssetRequest
+                newAssetRequest = new SerializableAssetRequest
                 {
                     AssetLocation = assetLocation,
                 };
@@ -94,6 +97,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 ImportVirtualAsset(newAssetRequest);
                 return true;
             }
+            newAssetRequest = default;
             return false;
         }
 
