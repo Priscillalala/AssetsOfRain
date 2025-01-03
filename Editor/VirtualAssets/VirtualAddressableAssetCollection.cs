@@ -64,6 +64,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
             AssetDatabase.DeleteAsset(virtualAssetPath);
         }
 
+        // Attempts to move an asset whos primary key might have changed between game builds
         public bool TryMoveVirtualAsset(SerializableAssetRequest assetRequest, IEnumerable<IResourceLocation> allowedAssetLocations, out SerializableAssetRequest newAssetRequest)
         {
             foreach (var assetLocation in allowedAssetLocations)

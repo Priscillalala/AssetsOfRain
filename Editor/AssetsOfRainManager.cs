@@ -1,20 +1,12 @@
 using AssetsOfRain.Editor.Util;
 using AssetsOfRain.Editor.VirtualAssets;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using UnityEditor;
-using UnityEditor.AddressableAssets;
-using UnityEditor.AddressableAssets.Settings;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
-using UnityEngine.AddressableAssets.ResourceLocators;
-using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.ResourceManagement.ResourceLocations;
-using UnityEngine.ResourceManagement.ResourceProviders;
-using Object = UnityEngine.Object;
 
 namespace AssetsOfRain.Editor
 {
@@ -26,6 +18,7 @@ namespace AssetsOfRain.Editor
 
         public VirtualAddressableAssetCollection virtualShaders = new VirtualAddressableAssetCollection(VIRTUAL_SHADERS_DIRECTORY);
         public VirtualAddressableAssetCollection virtualAssets = new VirtualAddressableAssetCollection(VIRTUAL_ASSETS_DIRECTORY);
+        // RoR2 uses optimized versions of shaders for the Switch which are never relevent to modding or referenced on PC builds
         public string[] ignoredShaderDirectories = new[]
         {
             "Hopoo Games/Optimized/Switch/",
@@ -56,10 +49,9 @@ namespace AssetsOfRain.Editor
             return instance;
         }
 
+        // Shaders are handled separately and every viable addressable shader is always given a virtual asset
         public void RefreshVirtualShaders()
         {
-            Debug.Log("RefreshVirtualShaders");
-
             var previousShaderRequests = virtualShaders.GetAssetRequests();
 
             HashSet<string> foundShaderKeys = new HashSet<string>();
@@ -80,7 +72,6 @@ namespace AssetsOfRain.Editor
                 {
                     continue;
                 }
-                Debug.Log($"Valid shader: {shaderLocation.PrimaryKey}");
                 validShaderLocations.Add(shaderLocation);
             }
 
@@ -107,7 +98,6 @@ namespace AssetsOfRain.Editor
 
         public void RefreshVirtualAssets()
         {
-            Debug.Log("Refreshing all assets..");
             RefreshVirtualShaders();
 
             var assetRequests = virtualAssets.GetAssetRequests();
