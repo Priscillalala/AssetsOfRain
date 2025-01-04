@@ -43,9 +43,9 @@ namespace AssetsOfRain.Editor
             }
             instance = CreateInstance<AssetsOfRainManager>();
             instance.name = Path.GetFileNameWithoutExtension(MANAGER_FILE_PATH);
-            instance.RefreshVirtualShaders();
             Directory.CreateDirectory(AssetsOfRain.DATA_DIRECTORY);
             AssetDatabase.CreateAsset(instance, MANAGER_FILE_PATH);
+            instance.RefreshVirtualShaders();
             return instance;
         }
 

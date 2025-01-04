@@ -39,10 +39,11 @@ namespace AssetsOfRain.Editor.VirtualAssets
             }
 
             string virtualAssetPath = GetVirtualAssetPath(assetRequest);
-            if (!File.Exists(virtualAssetPath))
+            string longVirtualAssetPath = "\\\\?\\" + Path.GetFullPath(virtualAssetPath);
+            if (!File.Exists(longVirtualAssetPath))
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(virtualAssetPath));
-                File.Create(virtualAssetPath).Close();
+                Directory.CreateDirectory(Path.GetDirectoryName(longVirtualAssetPath));
+                File.Create(longVirtualAssetPath).Close();
                 AssetDatabase.ImportAsset(virtualAssetPath);
             }
             if (AssetImporter.GetAtPath(virtualAssetPath) is not VirtualAddressableAssetImporter importer)
