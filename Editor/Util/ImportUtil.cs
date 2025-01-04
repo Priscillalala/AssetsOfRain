@@ -25,12 +25,14 @@ namespace AssetsOfRain.Editor.Util
             RenderTexture renderTex = RenderTexture.GetTemporary(srcTex.width, srcTex.height);
             RenderTexture previous = RenderTexture.active;
             Graphics.Blit(srcTex, renderTex);
-            Texture2D outputTex = new Texture2D(srcTex.width, srcTex.height);
+            Texture2D outputTex = new Texture2D(srcTex.width, srcTex.height)
+            {
+                alphaIsTransparency = srcTex.alphaIsTransparency
+            };
             outputTex.ReadPixels(new Rect(0, 0, renderTex.width, renderTex.height), 0, 0);
             outputTex.Apply(false, true);
             RenderTexture.active = previous;
             RenderTexture.ReleaseTemporary(renderTex);
-            outputTex.alphaIsTransparency = srcTex.alphaIsTransparency;
             return outputTex;
         }
     }
