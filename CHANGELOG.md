@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.1]
+## 0.1.1
 
 ### Fixed
 
@@ -8,6 +8,6 @@
 - Fix many imported addressable shaders appearing under the "Not Supported" tab
 - Fix Addressables builds generating an unnecessary unitybuiltinshaders bundle when referencing imported addressable shaders
 
-## [0.1.0]
+## 0.1.0
 
 Public indev release
