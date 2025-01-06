@@ -189,7 +189,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
                         if (!((Shader)asset).isSupported)
                         {
                             DestroyImmediate(asset);
-                            asset = ImportUtil.GetDummyShader(name, ctx);
+                            asset = ImportUtil.GetDummyShader(shaderAsset, ctx);
                         }
                     }
                     break;

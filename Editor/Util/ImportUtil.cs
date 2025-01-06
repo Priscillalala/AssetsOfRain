@@ -37,9 +37,9 @@ namespace AssetsOfRain.Editor.Util
             return outputTex;
         }
 
-        public static Shader GetDummyShader(string shaderName, AssetImportContext ctx)
+        public static Shader GetDummyShader(Shader srcShader, AssetImportContext ctx)
         {
-            string dummyShaderSource = $@"Shader ""{shaderName}"" 
+            string dummyShaderSource = $@"Shader ""{srcShader.name}"" 
 {{
     SubShader 
     {{
@@ -50,6 +50,14 @@ namespace AssetsOfRain.Editor.Util
 }}";
 
             Shader dummyShader = ShaderUtil.CreateShaderAsset(ctx, dummyShaderSource, false);
+
+            using SerializedObject seralializedSrcShader = new SerializedObject(srcShader);
+            using SerializedObject serializedDummyShader = new SerializedObject(dummyShader);
+
+            serializedDummyShader.CopyFromSerializedProperty(seralializedSrcShader.FindProperty("m_ParsedForm.m_PropInfo"));
+            serializedDummyShader.CopyFromSerializedProperty(seralializedSrcShader.FindProperty("m_ParsedForm.m_KeywordNames"));
+            serializedDummyShader.CopyFromSerializedProperty(seralializedSrcShader.FindProperty("m_ParsedForm.m_KeywordFlags"));
+            serializedDummyShader.ApplyModifiedProperties();
 
             return dummyShader;
         }
