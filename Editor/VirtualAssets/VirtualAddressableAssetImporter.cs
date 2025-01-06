@@ -162,16 +162,40 @@ namespace AssetsOfRain.Editor.VirtualAssets
             newRepresentation = true;
             switch (asset)
             {
-                case Shader:
-                    Shader shader = Shader.Find(name);
-                    if (shader && AssetDatabase.GetAssetPath(shader) != ctx.assetPath)
+                case Shader shaderAsset:
+                    Shader existingShader = Shader.Find(name);
+                    string existingShaderPath = AssetDatabase.GetAssetPath(existingShader);
+                    if (existingShader && !string.IsNullOrEmpty(existingShaderPath) && existingShaderPath != ctx.assetPath)
                     {
-                        newRepresentation = false;
-                        return shader;
+                        if (existingShaderPath.StartsWith("Assets"))
+                        {
+                            newRepresentation = false;
+                            return existingShader;
+                        }
+                        else
+                        {
+                            // This is a builtin shader, we don't want to directly reference it because addressables
+                            // will generate the builtin shaders bundle
+                            asset = Instantiate(existingShader);
+                            asset.hideFlags |= HideFlags.HideInHierarchy;
+                            using SerializedObject serializedClonedAsset = new SerializedObject(asset);
+
+                            // builtin shaders can depend on other builtin shaders and this is the easiest way to stop that
+                            serializedClonedAsset.FindProperty("m_ParsedForm.m_FallbackName").stringValue = string.Empty;
+                            serializedClonedAsset.FindProperty("m_Dependencies").ClearArray();
+                            serializedClonedAsset.ApplyModifiedProperties();
+                        }
                     }
                     else
                     {
-                        asset = Instantiate(asset);
+                        asset = Instantiate(shaderAsset);
+                        if (!((Shader)asset).isSupported)
+                        {
+                            // If the shader is unsupported we replace it with a supported dummy shader to move
+                            // it out of the "Not Supported" tab
+                            DestroyImmediate(asset);
+                            asset = ImportUtil.GetDummyShader(shaderAsset, ctx);
+                        }
                     }
                     break;
                 case ScriptableObject scriptableAsset:
