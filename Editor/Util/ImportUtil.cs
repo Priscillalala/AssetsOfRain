@@ -1,4 +1,5 @@
 ﻿using UnityEditor;
+using UnityEditor.AssetImporters;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -34,6 +35,23 @@ namespace AssetsOfRain.Editor.Util
             RenderTexture.active = previous;
             RenderTexture.ReleaseTemporary(renderTex);
             return outputTex;
+        }
+
+        public static Shader GetDummyShader(string shaderName, AssetImportContext ctx)
+        {
+            string dummyShaderSource = $@"Shader ""{shaderName}"" 
+{{
+    SubShader 
+    {{
+        ZTest Never
+        Pass {{ }}
+    }}
+    Fallback Off
+}}";
+
+            Shader dummyShader = ShaderUtil.CreateShaderAsset(ctx, dummyShaderSource, false);
+
+            return dummyShader;
         }
     }
 }
