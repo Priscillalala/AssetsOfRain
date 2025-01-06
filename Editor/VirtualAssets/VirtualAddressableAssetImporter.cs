@@ -174,10 +174,13 @@ namespace AssetsOfRain.Editor.VirtualAssets
                         }
                         else
                         {
+                            // This is a builtin shader, we don't want to directly reference it because addressables
+                            // will generate the builtin shaders bundle
                             asset = Instantiate(existingShader);
                             asset.hideFlags |= HideFlags.HideInHierarchy;
                             using SerializedObject serializedClonedAsset = new SerializedObject(asset);
 
+                            // builtin shaders can depend on other builtin shaders and this is the easiest way to stop that
                             serializedClonedAsset.FindProperty("m_ParsedForm.m_FallbackName").stringValue = string.Empty;
                             serializedClonedAsset.FindProperty("m_Dependencies").ClearArray();
                             serializedClonedAsset.ApplyModifiedProperties();
@@ -188,6 +191,8 @@ namespace AssetsOfRain.Editor.VirtualAssets
                         asset = Instantiate(shaderAsset);
                         if (!((Shader)asset).isSupported)
                         {
+                            // If the shader is unsupported we replace it with a supported dummy shader to move
+                            // it out of the "Not Supported" tab
                             DestroyImmediate(asset);
                             asset = ImportUtil.GetDummyShader(shaderAsset, ctx);
                         }
