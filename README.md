@@ -47,16 +47,6 @@ void Awake()
 ```
 *Assuming that your content catalog is built to an `aa` folder
 
-## Known Issues
-* Materials with addressable shaders occasionally lose their shader referenced
-* Many addressable shaders are grouped under the "Not Supported" shader tab
-* Many addressable shaders are only partially functional or totally nonfunctional. This is likely because they rely on specific features of the RoR2 render pipeline
-* Addressables builds will generate a useless unitybuiltinshaders bundle
-* If for some reason an addressables build fails, the RoR2 addressables catalog imported by ThunderKit will disappear. This can be easily fixed with `Tools/Assets of Rain/Debug/Reimport Addressables Catalog`
-* The additional search options in the Addressable Browser+ will sometimes disappear
-* The errors "Could not Move to directory Library/com.unity.addressables/aa/Windows, directory arlready exists" and "Missing built-in guistyle ...*" appear in reload but seem to be harmless
-* Imported addressable textures do not display transparency
-
 ## Acknowledgements
 Assets of Rain is based on [BundleKit](https://github.com/foonix/BundleKit) by PassivePicasso and foonix ([BundleKit License](https://github.com/PassivePicasso/BundleKit/blob/master/LICENSE))
 
