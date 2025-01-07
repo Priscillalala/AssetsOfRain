@@ -1,6 +1,16 @@
 # Changelog
 
-## [0.1.1]
+## 0.2.0
+
+### Added
+
+- Support addressable references in scenes
+
+### Fixed
+
+- Fix addressable shaders breaking builds under certain conditions, likely related to scene bundles
+
+## 0.1.1
 
 ### Fixed
 
@@ -8,6 +18,6 @@
 - Fix many imported addressable shaders appearing under the "Not Supported" tab
 - Fix Addressables builds generating an unnecessary unitybuiltinshaders bundle when referencing imported addressable shaders
 
-## [0.1.0]
+## 0.1.0
 
 Public indev release
