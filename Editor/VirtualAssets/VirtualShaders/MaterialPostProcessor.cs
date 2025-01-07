@@ -1,3 +1,4 @@
+using AssetsOfRain.Editor.Building;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -8,8 +9,6 @@ namespace AssetsOfRain.Editor.VirtualAssets.VirtualShaders
     // When materials reference a virtual shader asset, upgrade them to a loaded addressable shader that will display correctly
     public class MaterialPostProcessor : AssetPostprocessor
     {
-        public static bool enabled = false;
-
         static MaterialPostProcessor()
         {
             ObjectChangeEvents.changesPublished -= OnChangesPublished;
@@ -93,10 +92,7 @@ namespace AssetsOfRain.Editor.VirtualAssets.VirtualShaders
                     {
                         if (material)
                         {
-                            if (enabled)
-                            {
-                                material.shader = shader;
-                            }
+                            material.shader = shader;
                         }
                     }
                 };
@@ -118,16 +114,18 @@ namespace AssetsOfRain.Editor.VirtualAssets.VirtualShaders
             if (wasSaved)
             {
                 VirtualShaderDataStorage.instance.materialToShaderAsset[material.GetInstanceID()] = shader;
+                if (BuildScriptMod.IsBuilding)
+                {
+                    // Re-assigning shaders during the build will break things
+                    return;
+                }
                 var loadShaderOp = Addressables.LoadAssetAsync<Shader>(importer.request.AssetLocation);
                 loadShaderOp.Completed += handle =>
                 {
                     Shader shader = handle.Result;
                     if (material && shader)
                     {
-                        if (enabled)
-                        {
-                            material.shader = shader;
-                        }
+                        material.shader = shader;
                     }
                 };
             }

@@ -23,6 +23,8 @@ namespace AssetsOfRain.Editor.Building
     {
         public override string Name => "Build Modded Content";
 
+        public static bool IsBuilding {  get; private set; }
+
         public static Pipeline pipeline;
 
         protected override TResult DoBuild<TResult>(AddressablesDataBuilderInput builderInput, AddressableAssetsBuildContext aaContext)
@@ -50,7 +52,9 @@ namespace AssetsOfRain.Editor.Building
             ContentPipeline.BuildCallbacks.PostScriptsCallbacks += PostScripts;
             ContentPipeline.BuildCallbacks.PostPackingCallback += PostPacking;
             ContentPipeline.BuildCallbacks.PostWritingCallback += PostWriting;
+            IsBuilding = true;
             var result = base.DoBuild<TResult>(builderInput, aaContext);
+            IsBuilding = false;
             ContentPipeline.BuildCallbacks.PostScriptsCallbacks -= PostScripts;
             ContentPipeline.BuildCallbacks.PostPackingCallback -= PostPacking;
             ContentPipeline.BuildCallbacks.PostWritingCallback -= PostWriting;
