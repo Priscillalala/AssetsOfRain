@@ -45,6 +45,7 @@ namespace AssetsOfRain.Editor.Building
                     Addressables.AddDataBuilder(AssetDatabase.LoadAssetAtPath<BuildScriptMod>(AssetsOfRain.PACKAGE_ASSETS_DIRECTORY + "/Addressables/BuildScriptMod.asset"));
                 }
                 Addressables.ActivePlayerDataBuilderIndex = Addressables.DataBuilders.FindIndex(s => s is BuildScriptMod);
+                BuildScriptMod.pipeline = pipeline;
 
                 void BuildAddressables()
                 {

@@ -8,6 +8,8 @@ namespace AssetsOfRain.Editor.VirtualAssets.VirtualShaders
     // When materials reference a virtual shader asset, upgrade them to a loaded addressable shader that will display correctly
     public class MaterialPostProcessor : AssetPostprocessor
     {
+        public static bool enabled = false;
+
         static MaterialPostProcessor()
         {
             ObjectChangeEvents.changesPublished -= OnChangesPublished;
@@ -91,7 +93,10 @@ namespace AssetsOfRain.Editor.VirtualAssets.VirtualShaders
                     {
                         if (material)
                         {
-                            material.shader = shader;
+                            if (enabled)
+                            {
+                                material.shader = shader;
+                            }
                         }
                     }
                 };
@@ -119,7 +124,10 @@ namespace AssetsOfRain.Editor.VirtualAssets.VirtualShaders
                     Shader shader = handle.Result;
                     if (material && shader)
                     {
-                        material.shader = shader;
+                        if (enabled)
+                        {
+                            material.shader = shader;
+                        }
                     }
                 };
             }
