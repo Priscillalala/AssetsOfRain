@@ -8,7 +8,6 @@ using UnityEditor.AddressableAssets.Build.DataBuilders;
 using UnityEditor.Build.Content;
 using UnityEditor.Build.Pipeline;
 using UnityEditor.Build.Pipeline.Interfaces;
-using UnityEditor.Build.Pipeline.WriteTypes;
 using UnityEngine;
 using UnityEngine.AddressableAssets.ResourceLocators;
 using UnityEngine.ResourceManagement.ResourceProviders;
@@ -20,6 +19,8 @@ namespace AssetsOfRain.Editor.Building
     public class BuildScriptMod : BuildScriptPackedMode
     {
         public override string Name => "Build Modded Content";
+
+        public static bool IsBuilding {  get; private set; }
 
         protected override TResult DoBuild<TResult>(AddressablesDataBuilderInput builderInput, AddressableAssetsBuildContext aaContext)
         {
@@ -46,7 +47,9 @@ namespace AssetsOfRain.Editor.Building
             ContentPipeline.BuildCallbacks.PostScriptsCallbacks += PostScripts;
             ContentPipeline.BuildCallbacks.PostPackingCallback += PostPacking;
             ContentPipeline.BuildCallbacks.PostWritingCallback += PostWriting;
+            IsBuilding = true;
             var result = base.DoBuild<TResult>(builderInput, aaContext);
+            IsBuilding = false;
             ContentPipeline.BuildCallbacks.PostScriptsCallbacks -= PostScripts;
             ContentPipeline.BuildCallbacks.PostPackingCallback -= PostPacking;
             ContentPipeline.BuildCallbacks.PostWritingCallback -= PostWriting;
@@ -72,32 +75,55 @@ namespace AssetsOfRain.Editor.Building
                 return ReturnCode.Success;
             }
 
+            static bool TryGetReferencedObjects(GUID asset, IDependencyData dependencyData, out IEnumerable<ObjectIdentifier> referencedObjects)
+            {
+                if (dependencyData.AssetInfo.TryGetValue(asset, out AssetLoadInfo assetLoadInfo))
+                {
+                    referencedObjects = assetLoadInfo.referencedObjects;
+                    return true;
+                }
+                else if (dependencyData.SceneInfo.TryGetValue(asset, out SceneDependencyInfo sceneDependencyInfo))
+                {
+                    referencedObjects = sceneDependencyInfo.referencedObjects;
+                    return true;
+                }
+                referencedObjects = null;
+                return false;
+            }
+
             // Before any assetbundles are created, edit the write data so our virtual assets resolve to actual assets at runtime
             ReturnCode PostPacking(IBuildParameters parameters, IDependencyData dependencyData, IWriteData writeData)
             {
-                foreach (var assetBundleWriteOperation in writeData.WriteOperations.OfType<AssetBundleWriteOperation>())
+                if (writeData is not IBundleWriteData bundleWriteData)
                 {
-                    var bundleAssets = assetBundleWriteOperation.Info.bundleAssets;
-                    for (int i = bundleAssets.Count - 1; i >= 0; i--)
+                    return ReturnCode.SuccessNotRun;
+                }
+                var filesToAssets = bundleWriteData.AssetToFiles
+                    .GroupBy(x => x.Value[0], x => x.Key)
+                    .ToDictionary(x => x.Key, x => new List<GUID>(x));
+
+                foreach ((var file, var assets) in filesToAssets)
+                {
+                    if (!bundleWriteData.FileToReferenceMap.TryGetValue(file, out BuildReferenceMap referenceMap))
                     {
-                        AssetLoadInfo assetLoadInfo = bundleAssets[i];
-                        if (virtualAssetGuids.Contains(assetLoadInfo.asset))
+                        continue;
+                    }
+                    foreach (GUID asset in assets)
+                    {
+                        if (!TryGetReferencedObjects(asset, dependencyData, out var referencedObjects))
                         {
-                            bundleAssets.RemoveAt(i);
                             continue;
                         }
-                        foreach (var referencedObject in assetLoadInfo.referencedObjects)
+                        foreach (var referencedObject in referencedObjects)
                         {
                             if (virtualAssets.TryGetValue(referencedObject, out var virtualAsset))
                             {
                                 // Tell our bundle where to find this virtual asset at runtime
                                 // If the virtual asset was included in this bundle, it will also be removed
-                                assetBundleWriteOperation.ReferenceMap.AddMapping(virtualAsset.internalBundleName, virtualAsset.identifier, referencedObject, true);
+                                referenceMap.AddMapping(virtualAsset.internalBundleName, virtualAsset.identifier, referencedObject, true);
                             }
                         }
                     }
-                    // Might be unnecessary but it doesn't hurt
-                    assetBundleWriteOperation.Command.serializeObjects.RemoveAll(x => virtualAssets.ContainsKey(x.serializationObject));
                 }
                 return ReturnCode.Success;
             }
@@ -106,38 +132,55 @@ namespace AssetsOfRain.Editor.Building
             // generated after the build, so this is the perfect place to inject new locations
             ReturnCode PostWriting(IBuildParameters parameters, IDependencyData dependencyData, IWriteData writeData, IBuildResults results)
             {
+                if (writeData is not IBundleWriteData bundleWriteData)
+                {
+                    return ReturnCode.SuccessNotRun;
+                }
                 int originalLocationCount = aaContext.locations.Count;
                 // Addressable dependencies are calculated per-bundle rather than per-asset, so we
                 // map existing bundle keys to additional bundle dependencies from virtual assets
                 var bundleDependencyKeysMap = new Dictionary<string, HashSet<string>>();
                 var allBundleDependencyKeys = new HashSet<string>();
 
-                foreach (var assetBundleWriteOperation in writeData.WriteOperations.OfType<AssetBundleWriteOperation>())
+                var filesToAssets = bundleWriteData.AssetToFiles
+                    .GroupBy(x => x.Value[0], x => x.Key)
+                    .ToDictionary(x => x.Key, x => new List<GUID>(x));
+
+                foreach ((var file, var assets) in filesToAssets)
                 {
+                    HashSet<string> uniqueAssetPaths = new HashSet<string>();
                     HashSet<string> bundleDependencyKeys = new HashSet<string>();
 
-                    var bundleDependencies = assetBundleWriteOperation.Info.bundleAssets
-                        .SelectMany(x => x.referencedObjects)
-                        .Select(x => AssetDatabase.GUIDToAssetPath(x.guid))
-                        .Distinct()
-                        .Where(virtualAssetDependencies.ContainsKey)
-                        .SelectMany(x => virtualAssetDependencies[x]);
-
-                    foreach (var bundleDependency in bundleDependencies)
+                    foreach (GUID asset in assets)
                     {
-                        if (bundleDependencyKeys.Add(bundleDependency.primaryKey) && allBundleDependencyKeys.Add(bundleDependency.primaryKey))
+                        if (!TryGetReferencedObjects(asset, dependencyData, out var referencedObjects))
                         {
-                            aaContext.locations.Add(new ContentCatalogDataEntry(
-                                type: typeof(IAssetBundleResource),
-                                internalId: bundleDependency.internalId,
-                                provider: bundleDependency.providerId,
-                                keys: new[] { bundleDependency.primaryKey },
-                                extraData: bundleDependency.data));
+                            continue;
                         }
-                    }
+                        foreach (var referencedObject in referencedObjects)
+                        {
+                            string assetPath = AssetDatabase.GUIDToAssetPath(referencedObject.guid);
+                            if (!uniqueAssetPaths.Add(assetPath) || !virtualAssetDependencies.TryGetValue(assetPath, out var bundleDependencies))
+                            {
+                                continue;
+                            }
+                            foreach (var bundleDependency in bundleDependencies)
+                            {
+                                if (bundleDependencyKeys.Add(bundleDependency.primaryKey) && allBundleDependencyKeys.Add(bundleDependency.primaryKey))
+                                {
+                                    aaContext.locations.Add(new ContentCatalogDataEntry(
+                                        type: typeof(IAssetBundleResource),
+                                        internalId: bundleDependency.internalId,
+                                        provider: bundleDependency.providerId,
+                                        keys: new[] { bundleDependency.primaryKey },
+                                        extraData: bundleDependency.data));
+                                }
+                            }
+                        }
+                    }                    
                     if (bundleDependencyKeys.Count > 0)
                     {
-                        bundleDependencyKeysMap.Add(assetBundleWriteOperation.Info.bundleName, bundleDependencyKeys);
+                        bundleDependencyKeysMap.Add(bundleWriteData.FileToBundle[file], bundleDependencyKeys);
                     }
                 }
                 for (int i = 0; i < originalLocationCount; i++)

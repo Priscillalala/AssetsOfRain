@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0
+
+### Added
+
+- Support addressable references in scenes
+
+### Fixed
+
+- Fix addressable shaders breaking builds under certain conditions, likely related to scene bundles
+
 ## 0.1.1
 
 ### Fixed

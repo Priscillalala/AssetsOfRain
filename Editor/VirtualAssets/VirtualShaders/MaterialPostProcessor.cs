@@ -1,3 +1,4 @@
+using AssetsOfRain.Editor.Building;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -113,6 +114,11 @@ namespace AssetsOfRain.Editor.VirtualAssets.VirtualShaders
             if (wasSaved)
             {
                 VirtualShaderDataStorage.instance.materialToShaderAsset[material.GetInstanceID()] = shader;
+                if (BuildScriptMod.IsBuilding)
+                {
+                    // Re-assigning shaders during the build will break things
+                    return;
+                }
                 var loadShaderOp = Addressables.LoadAssetAsync<Shader>(importer.request.AssetLocation);
                 loadShaderOp.Completed += handle =>
                 {
