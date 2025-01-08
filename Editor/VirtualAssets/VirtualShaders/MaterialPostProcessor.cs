@@ -1,4 +1,5 @@
 using AssetsOfRain.Editor.Building;
+using AssetsOfRain.Editor.Util;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -41,7 +42,7 @@ namespace AssetsOfRain.Editor.VirtualAssets.VirtualShaders
 
         public static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths, bool didDomainReload)
         {
-            foreach (Material material in importedAssets.SelectMany(x => AssetDatabase.LoadAllAssetsAtPath(x).OfType<Material>()))
+            foreach (Material material in MaterialSearchUtil.GetMaterialAssets(importedAssets))
             {
                 OnMaterialPropertiesChanged(material, true);
             }
@@ -71,12 +72,7 @@ namespace AssetsOfRain.Editor.VirtualAssets.VirtualShaders
                 return null;
             }
 
-            var allMaterialsByShader = AssetDatabase.FindAssets($"glob:\"(*.mat|*.{VirtualAddressableAssetImporter.EXTENSION})\" a:assets")//($"t:{nameof(Material)}")
-                .Select(AssetDatabase.GUIDToAssetPath)
-                .Distinct()
-                .SelectMany(AssetDatabase.LoadAllAssetsAtPath)
-                .OfType<Material>()
-                .GroupBy(ResolvePersistentShaderPath);
+            var allMaterialsByShader = MaterialSearchUtil.GetAllMaterialAssets().GroupBy(ResolvePersistentShaderPath);
 
             foreach (var materialsWithShaderGroup in allMaterialsByShader)
             {

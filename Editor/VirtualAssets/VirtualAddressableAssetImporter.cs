@@ -28,7 +28,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
     // The secret sauce
     // Generated .virtualaa files are empty. This importer stores serialized info like the request and results in
     // the corresponding .virtualaa.meta file, and the virtual assets are stored somewhere in Unity's temp files
-    [ScriptedImporter(0, EXTENSION)]
+    [ScriptedImporter(0, EXTENSION_NO_PERIOD)]
     public class VirtualAddressableAssetImporter : ScriptedImporter
     {
         // Used to map virtual assets to runtime assets
@@ -58,7 +58,8 @@ namespace AssetsOfRain.Editor.VirtualAssets
             }
         }
 
-        public const string EXTENSION = "virtualaa";
+        public const string EXTENSION_NO_PERIOD = "virtualaa";
+        public const string EXTENSION = "." + EXTENSION_NO_PERIOD;
 
         public SerializableAssetRequest request;
 
