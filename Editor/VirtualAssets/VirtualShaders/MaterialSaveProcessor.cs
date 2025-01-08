@@ -1,3 +1,4 @@
+using AssetsOfRain.Editor.Util;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -10,7 +11,7 @@ namespace AssetsOfRain.Editor.VirtualAssets.VirtualShaders
     {
         public static string[] OnWillSaveAssets(string[] assetPaths)
         {
-            foreach (Material material in assetPaths.SelectMany(x => AssetDatabase.LoadAllAssetsAtPath(x).OfType<Material>()))
+            foreach (Material material in MaterialSearchUtil.GetMaterialAssets(assetPaths))
             {
                 Shader shader = material.shader;
                 // Loaded addressable shaders have no asset path

@@ -6,7 +6,7 @@
     "url": ""
   },
   "displayName": "Assets of Rain",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "unity": "2021.3",
   "description": "A ThunderKit package for building Risk of Rain 2 mods that depend on addressable assets, with full editor support",
   "dependencies": {

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+### Fixed
+
+- Fix error logs from the materials system attempting to load scene assets
+
 ## 0.2.0
 
 ### Added
