@@ -1,9 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.AssetImporters;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
 using Object = UnityEngine.Object;
 
 namespace AssetsOfRain.Editor.Util
@@ -47,6 +48,35 @@ namespace AssetsOfRain.Editor.Util
             RenderTexture.active = previous;
             RenderTexture.ReleaseTemporary(renderTex);
             return outputTex;
+        }
+
+        // There MUST be a better way
+        public static Cubemap DuplicateCompressedCubemap(Cubemap srcCubemap)
+        {
+            Cubemap outputCubemap = new Cubemap(srcCubemap.width, GraphicsFormat.R8G8B8A8_SRGB, TextureCreationFlags.None);
+
+            RenderTexture renderTex = RenderTexture.GetTemporary(srcCubemap.width, srcCubemap.height, 0, GraphicsFormat.R8G8B8A8_SRGB);
+            RenderTexture previous = RenderTexture.active;
+
+            Texture2D intermediaryTex = new Texture2D(srcCubemap.width, srcCubemap.height, srcCubemap.format, false);
+
+            for (var face = CubemapFace.PositiveX; face <= CubemapFace.NegativeZ; face++)
+            {
+                Graphics.CopyTexture(srcCubemap, (int)face, 0, intermediaryTex, 0, 0);
+                Graphics.Blit(intermediaryTex, renderTex);
+                var asyncGPUReadback = AsyncGPUReadback.Request(renderTex, 0);
+                asyncGPUReadback.WaitForCompletion();
+                outputCubemap.SetPixelData(asyncGPUReadback.GetData<byte>(), 0, face);
+            }
+
+            outputCubemap.Apply(false, true);
+
+            RenderTexture.active = previous;
+            RenderTexture.ReleaseTemporary(renderTex);
+
+            Object.DestroyImmediate(intermediaryTex);
+
+            return outputCubemap;
         }
 
         public static Shader GetDummyShader(Shader srcShader, AssetImportContext ctx)
