@@ -1,4 +1,7 @@
-﻿using UnityEditor;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEditor;
 using UnityEditor.AssetImporters;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -7,6 +10,15 @@ namespace AssetsOfRain.Editor.Util
 {
     public static class ImportUtil
     {
+        public static MonoScript FindScript(Type classType)
+        {
+            return AssetDatabase.FindAssets($"t:{nameof(MonoScript)}")
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Distinct()
+                .SelectMany(x => AssetDatabase.LoadAllAssetsAtPath(x).OfType<MonoScript>())
+                .FirstOrDefault(x => x.GetClass() == classType);
+        }
+
         public static void SetScriptReference(Object asset, MonoScript monoScript)
         {
             const string SCRIPT_PROPERTY = "m_Script";
