@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.3
+
+### Added
+
+- Support Cubemap imports (skyboxes)
+
 ## 0.2.2
 
 ### Changed

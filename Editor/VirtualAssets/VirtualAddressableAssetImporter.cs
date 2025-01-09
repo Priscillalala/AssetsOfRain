@@ -243,6 +243,9 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 case Texture2D texAsset:
                     asset = ImportUtil.DuplicateCompressedTexture(texAsset);
                     break;
+                case Cubemap cubemapAsset:
+                    asset = ImportUtil.DuplicateCompressedCubemap(cubemapAsset);
+                    break;
                 case Material matAsset:
                     asset = new Material(matAsset);
                     break;
