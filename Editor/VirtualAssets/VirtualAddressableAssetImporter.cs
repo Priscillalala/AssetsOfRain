@@ -60,6 +60,8 @@ namespace AssetsOfRain.Editor.VirtualAssets
 
         public const string EXTENSION_NO_PERIOD = "virtualaa";
         public const string EXTENSION = "." + EXTENSION_NO_PERIOD;
+        const int MAX_SCRIPTABLEOBJECT_DEPTH = 1;
+        const int MAX_PREFAB_DEPTH = 1;
 
         public SerializableAssetRequest request;
 
@@ -92,7 +94,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
                 return;
             }
 
-            asset = CollectAssetsRecursive(asset, ctx, new HashSet<int>(), new Dictionary<int, Object>(), assetToBundleMap);
+            asset = CollectAssetsRecursive(asset, ctx, -1, new HashSet<int>(), new Dictionary<int, Object>(), assetToBundleMap);
             if (results.Count > 0)
             {
                 asset.hideFlags = HideFlags.NotEditable;
@@ -104,7 +106,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
             }
         }
 
-        public Object CollectAssetsRecursive(Object asset, AssetImportContext ctx, HashSet<int> objectsInHierarchy, Dictionary<int, Object> assetRepresentations, Dictionary<long, string> assetToBundleMap)
+        public Object CollectAssetsRecursive(Object asset, AssetImportContext ctx, int depth, HashSet<int> objectsInHierarchy, Dictionary<int, Object> assetRepresentations, Dictionary<long, string> assetToBundleMap)
         {
             int assetInstanceId = asset.GetInstanceID();
             if (objectsInHierarchy.Contains(assetInstanceId))
@@ -116,8 +118,18 @@ namespace AssetsOfRain.Editor.VirtualAssets
             {
                 // The localId of loaded addressable assets matches their pathId in the assetbundle
                 AssetDatabase.TryGetGUIDAndLocalFileIdentifier(asset, out _, out long localId);
-                Object assetRepresentation = GetAssetRepresentation(asset, ctx, out bool newRepresentation);
+                if (!assetToBundleMap.ContainsKey(localId))
+                {
+                    Debug.LogWarning($"Virtual asset importer {ctx.assetPath} found asset {(asset != null ? asset.name : "null")} with id {localId} which did not map to any bundle");
+                    return null;
+                }
+                Object assetRepresentation = GetAssetRepresentation(asset, ctx, ++depth, out bool newRepresentation);
                 assetRepresentations[assetInstanceId] = assetRepresentation;
+                if (!assetRepresentation)
+                {
+                    // Probably culled on purpose
+                    return null;
+                }
                 assetRepresentations[assetRepresentation.GetInstanceID()] = assetRepresentation;
                 if (!newRepresentation)
                 {
@@ -145,7 +157,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
 
                 if (!assetRepresentations.TryGetValue(currentProperty.objectReferenceInstanceIDValue, out Object propertyAsset))
                 {
-                    propertyAsset = CollectAssetsRecursive(currentProperty.objectReferenceValue, ctx, objectsInHierarchy, assetRepresentations, assetToBundleMap);
+                    propertyAsset = CollectAssetsRecursive(currentProperty.objectReferenceValue, ctx, depth, objectsInHierarchy, assetRepresentations, assetToBundleMap);
                 }
 
                 currentProperty.objectReferenceValue = propertyAsset;
@@ -157,7 +169,7 @@ namespace AssetsOfRain.Editor.VirtualAssets
 
         // Get a mutable instance of the loaded asset that will play nice in the project
         // For shaders, attempts to return an existing virtual shader asset already in the project
-        public static Object GetAssetRepresentation(Object asset, AssetImportContext ctx, out bool newRepresentation)
+        public static Object GetAssetRepresentation(Object asset, AssetImportContext ctx, int depth, out bool newRepresentation)
         {
             string name = asset.name;
             newRepresentation = true;
@@ -200,26 +212,33 @@ namespace AssetsOfRain.Editor.VirtualAssets
                     }
                     break;
                 case ScriptableObject scriptableAsset:
+                    if (depth > MAX_SCRIPTABLEOBJECT_DEPTH)
+                    {
+                        // Scriptable objects can create massive dependency trees
+                        return null;
+                    }
                     asset = ScriptableObject.CreateInstance(scriptableAsset.GetType());
                     EditorUtility.CopySerialized(scriptableAsset, asset);
                     break;
                 case GameObject:
+                    if (depth > MAX_PREFAB_DEPTH)
+                    {
+                        // Prefabs can create unholy dependency trees
+                        return null;
+                    }
                     asset = Instantiate(asset);
                     // Prevents this instantiation from dirtying the current scene
                     asset.hideFlags |= HideFlags.DontSave;
                     GameObject prefabAsset = (GameObject)asset;
                     var componentGroups = prefabAsset.GetComponentsInChildren<MonoBehaviour>(true).GroupBy(x => x.GetType());
-                    GameObject tempPrefabAsset = EditorUtility.CreateGameObjectWithHideFlags(name, HideFlags.HideAndDontSave);
-                    tempPrefabAsset.SetActive(false);
                     foreach (var componentGroup in componentGroups)
                     {
-                        MonoScript monoScript = MonoScript.FromMonoBehaviour((MonoBehaviour)tempPrefabAsset.AddComponent(componentGroup.Key));
+                        MonoScript monoScript = ImportUtil.FindScript(componentGroup.Key);
                         foreach (var component in componentGroup)
                         {
                             ImportUtil.SetScriptReference(component, monoScript);
                         }
                     }
-                    DestroyImmediate(tempPrefabAsset);
                     break;
                 case Texture2D texAsset:
                     asset = ImportUtil.DuplicateCompressedTexture(texAsset);
