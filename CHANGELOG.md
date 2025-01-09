@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.2
+
+### Changed
+
+- Limit the size of virtual assets by ignoring prefabs and scriptable objects past a certain depth
+
+### Fixed
+
+- Fix prefab imports sometimes throwing component-related errors; temporary components are no longer used to lookup scripts
+
 ## 0.2.1
 
 ### Fixed
