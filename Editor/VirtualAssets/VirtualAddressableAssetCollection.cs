@@ -27,8 +27,13 @@ namespace AssetsOfRain.Editor.VirtualAssets
         public string GetVirtualAssetPath(SerializableAssetRequest assetRequest)
         {
             string virtualAssetDirectory = Path.Combine(directory, Path.GetDirectoryName(assetRequest.primaryKey));
+
+            Hash128 typeHash = Hash128.Compute(assetRequest.assemblyQualifiedTypeName);
+            typeHash.Append(Path.GetExtension(assetRequest.primaryKey));
+
             string virtualAssetFileName = Path.ChangeExtension(Path.GetFileName(assetRequest.primaryKey), VirtualAddressableAssetImporter.EXTENSION);
-            return Path.Combine(virtualAssetDirectory, assetRequest.assemblyQualifiedTypeName, virtualAssetFileName);
+            
+            return Path.Combine(virtualAssetDirectory, typeHash.ToString(), virtualAssetFileName);
         }
 
         public void ImportVirtualAsset(SerializableAssetRequest assetRequest)
