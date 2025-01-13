@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.4
+
+### Changed
+
+- Update virtual asset paths to use a shorter "type hash" based on the asset type and file extension rather than using the type name directly
+
+### Fixed
+
+- Fix virtual asset path conflicts caused by multiple file extensions mapping to the same asset type
+
 ## 0.2.3
 
 ### Added
